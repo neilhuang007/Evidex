@@ -4,11 +4,15 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="041964c1-da3b-43da-9e6c-5bf4f34492c5" name="更改" comment="">
-      <change afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+    <list default="true" id="041964c1-da3b-43da-9e6c-5bf4f34492c5" name="更改" comment="更改">
       <change afterPath="$PROJECT_DIR$/package.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/ai/gemini-wrapper.ts" afterDir="false" />
       <change afterPath="$PROJECT_DIR$/tsconfig.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/dist/ai/gemini-wrapper.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dist/exporters/wordHandler.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/dist/server.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/public/app.js" beforeDir="false" afterPath="$PROJECT_DIR$/public/app.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/public/styles.css" beforeDir="false" afterPath="$PROJECT_DIR$/public/styles.css" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/exporters/wordHandler.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/exporters/wordHandler.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -78,6 +82,7 @@
       <workItem from="1757707681877" duration="30000" />
       <workItem from="1757707730078" duration="6667000" />
       <workItem from="1757882508718" duration="17641000" />
+      <workItem from="1757936195143" duration="1078000" />
     </task>
     <servers />
   </component>

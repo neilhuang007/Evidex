@@ -141,19 +141,19 @@ class CardCutterApp {
         // - Return to middle only when empty AND not focused
         const hint = wrapper.querySelector('.input-hint');
         if (hint && this._isSplit) {
+            // Clear any existing positioning classes first
+            hint.classList.remove('hint-top', 'hint-centered');
+            
             if (!hasValue && !inputEl.matches(':focus')) {
                 // Return to middle when empty and not focused
-                hint.classList.remove('hint-top');
                 hint.classList.add('hint-centered');
-                // Force style recalculation
-                void hint.offsetHeight;
             } else {
                 // Stay at top when focused or has value
-                hint.classList.remove('hint-centered');
                 hint.classList.add('hint-top');
-                // Force style recalculation
-                void hint.offsetHeight;
             }
+            
+            // Force style recalculation
+            void hint.offsetHeight;
         }
     }
     
@@ -273,16 +273,19 @@ class CardCutterApp {
         const STEP_PHI = Math.round(100 * PHI_COMP); // ~38ms steps
 
         const performSplit = () => {
-            // Prepare elements to prevent layout jump
+            // Prepare elements to prevent layout jump (only when animating)
             const labelEls = this.inputCard ? Array.from(this.inputCard.querySelectorAll('.card-header, .input-label')) : [];
             const hintEls = this.inputCard ? Array.from(this.inputCard.querySelectorAll('.input-hint')) : [];
             
-            // Pre-set reveal states to prevent jump
-            labelEls.forEach(el => {
-                el.classList.add('reveal-prepare');
-                el.style.margin = '';
-                el.style.padding = '';
-            });
+            // Only add reveal prep classes when we are animating the transition.
+            // In non-animated (initial load) case, these classes would keep labels invisible.
+            if (animated) {
+                labelEls.forEach(el => {
+                    el.classList.add('reveal-prepare');
+                    el.style.margin = '';
+                    el.style.padding = '';
+                });
+            }
             
             // Force layout calculation before transition
             if (this.mainRoot) void this.mainRoot.offsetHeight;
@@ -361,10 +364,15 @@ class CardCutterApp {
                     const delay = Math.round(PHI_INV * D382) + idx * STEP_PHI; // ~236ms + 38ms steps
                     el.style.transitionDelay = `${delay}ms`;
                     el.classList.add('hint-fade-in');
-                    // Clean up classes after animation
+                    // Clean up classes after animation and set proper state
                     setTimeout(() => {
                         el.classList.remove('hint-fade-prepare', 'hint-fade-in');
                         el.style.transitionDelay = '';
+                        // Update hint states for the split layout
+                        const input = el.closest('.input-wrapper')?.querySelector('.text-input');
+                        if (input) {
+                            this.updateHintState(input);
+                        }
                     }, D1000);
                 });
 

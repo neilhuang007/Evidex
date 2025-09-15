@@ -42,56 +42,56 @@ function ptToHalfPoints(pt: number): number {
 }
 
 export function parseTagged(input: string): RenderNode[] {
-  const cleanInput = input.replace(/\r\n/g, "\n").trim();
+  // Normalize newlines but DO NOT trim — preserve leading/trailing blanks
+  const text = input.replace(/\r\n/g, "\n");
   const nodes: RenderNode[] = [];
-  
-  // Parse tags sequentially from the input string
-  let remaining = cleanInput;
-  
-  while (remaining.length > 0) {
-    // Try to match tagline
-    const taglineMatch = remaining.match(/^\[TAGLINE\]([\s\S]*?)\[\/TAGLINE\](?:\n|$)/i);
-    if (taglineMatch) {
-      nodes.push({ kind: "tagline", runs: parseRuns(taglineMatch[1].trim()) });
-      remaining = remaining.slice(taglineMatch[0].length);
+
+  let i = 0;
+  const len = text.length;
+  while (i < len) {
+    const s = text.slice(i);
+
+    // [TAGLINE]...[/TAGLINE]\n?
+    let m = /^\[TAGLINE\]([\s\S]*?)\[\/TAGLINE\](?:\n)?/i.exec(s);
+    if (m) {
+      nodes.push({ kind: "tagline", runs: parseRuns(m[1]) });
+      i += m[0].length;
       continue;
     }
-    
-    // Try to match link
-    const linkMatch = remaining.match(/^\[LINK(?:\s+href=\"([^\"]+)\")?\]([\s\S]*?)\[\/LINK\](?:\n|$)/i);
-    if (linkMatch) {
-      const href = (linkMatch[1] || linkMatch[2] || "").trim();
-      const text = (linkMatch[2] || linkMatch[1] || href).trim();
-      nodes.push({ kind: "link", href, text });
-      remaining = remaining.slice(linkMatch[0].length);
+
+    // [LINK href="..."]text[/LINK]\n?  or [LINK]text[/LINK]\n?
+    m = /^\[LINK(?:\s+href=\"([^\"]+)\")?\]([\s\S]*?)\[\/LINK\](?:\n)?/i.exec(s);
+    if (m) {
+      const href = (m[1] || m[2] || "").trim();
+      const textContent = (m[2] || m[1] || href).trim();
+      nodes.push({ kind: "link", href, text: textContent });
+      i += m[0].length;
       continue;
     }
-    
-    // Try to match cite
-    const citeMatch = remaining.match(/^\[CITE\]([\s\S]*?)\[\/CITE\](?:\n|$)/i);
-    if (citeMatch) {
-      const text = citeMatch[1].trim();
-      nodes.push({ kind: "cite", text });
-      remaining = remaining.slice(citeMatch[0].length);
+
+    // [CITE]...[/CITE]\n?
+    m = /^\[CITE\]([\s\S]*?)\[\/CITE\](?:\n)?/i.exec(s);
+    if (m) {
+      nodes.push({ kind: "cite", text: m[1].trim() });
+      i += m[0].length;
       continue;
     }
-    
-    // If no tags match, find the next line or end of string
-    const nextLineMatch = remaining.match(/^(.*?)(?:\n|$)/);
-    if (nextLineMatch) {
-      const line = nextLineMatch[1].trim();
-      if (line) {
-        // Check if this is the start of content (not empty line)
-        if (!line.match(/^\s*$/)) {
-          // Take everything remaining as content
-          nodes.push({ kind: "text", runs: parseRuns(remaining.trim()) });
-          break;
-        }
-      }
-      remaining = remaining.slice(nextLineMatch[0].length);
-    } else {
-      break;
+
+    // Not at a tag — consume text up to the next tag marker, preserving blanks
+    const nextTagIdxs = ["[TAGLINE]", "[LINK", "[CITE]"].map((t) => s.indexOf(t)).filter((n) => n >= 0);
+    let end = nextTagIdxs.length > 0 ? Math.min(...nextTagIdxs) : s.length;
+    // Safety: if a malformed tag is at position 0 but regex didn't match, advance by 1 char
+    if (end === 0) end = 1;
+
+    const chunk = s.slice(0, end);
+    if (chunk.length > 0) {
+      nodes.push({ kind: "text", runs: parseRuns(chunk) });
+      i += chunk.length;
+      continue;
     }
+
+    // Fallback: advance one char to avoid infinite loop
+    i += 1;
   }
 
   return nodes;
@@ -118,43 +118,119 @@ function parseRuns(text: string): InlineRun[] {
 
 function renderParagraphs(nodes: RenderNode[]): Paragraph[] {
   const paras: Paragraph[] = [];
+  let trailingBlank = 0; // count of consecutive trailing blank paragraphs
+  let suppressNextLeadingBlanks = false; // used to prevent extra blanks right after cite
+
+  const makeRun = (r: InlineRun, mode: "tagline" | "text") => {
+    if (mode === "tagline") {
+      return r.kind === "hl"
+        ? new TextRun({
+            text: r.text,
+            bold: false,
+            size: ptToHalfPoints(SIZES.highlightPt),
+            shading: { type: ShadingType.CLEAR, fill: COLORS.brightGreen, color: "auto" },
+            font: FONT,
+          })
+        : new TextRun({
+            text: r.text,
+            bold: true,
+            size: ptToHalfPoints(SIZES.taglinePt),
+            font: FONT,
+          });
+    }
+    // mode === 'text'
+    return r.kind === "hl"
+      ? new TextRun({
+          text: r.text,
+          bold: false,
+          size: ptToHalfPoints(SIZES.highlightPt),
+          shading: { type: ShadingType.CLEAR, fill: COLORS.brightGreen, color: "auto" },
+          font: FONT,
+        })
+      : new TextRun({
+          text: r.text,
+          size: ptToHalfPoints(SIZES.textPt),
+          font: FONT,
+        });
+  };
+
+  const runsToParagraphSpecs = (
+    runs: InlineRun[],
+    mode: "tagline" | "text"
+  ): { paragraph: Paragraph; isBlank: boolean }[] => {
+    const paraRuns: TextRun[][] = [[]];
+    for (const r of runs) {
+      const parts = r.text.split("\n");
+      for (let i = 0; i < parts.length; i++) {
+        const part = parts[i];
+        if (part.length > 0) {
+          paraRuns[paraRuns.length - 1].push(makeRun({ ...r, text: part }, mode));
+        }
+        if (i < parts.length - 1) {
+          // newline boundary -> start a new paragraph
+          paraRuns.push([]);
+        }
+      }
+    }
+    // Convert to Paragraphs (including empty ones to preserve blank lines)
+    return paraRuns.map((children) => ({
+      paragraph: new Paragraph({ children }),
+      isBlank: children.length === 0,
+    }));
+  };
+
+  const ensureExactlyOneTrailingBlank = () => {
+    if (trailingBlank === 0) {
+      paras.push(new Paragraph({ children: [] }));
+      trailingBlank = 1;
+    } else if (trailingBlank > 1) {
+      // remove extras
+      while (trailingBlank > 1) {
+        paras.pop();
+        trailingBlank -= 1;
+      }
+    }
+  };
+
+  const MAX_CONSECUTIVE_BLANKS = 2; // preserve up to two blanks (e.g., between cards)
+  const appendParagraphSpec = (spec: { paragraph: Paragraph; isBlank: boolean }) => {
+    if (spec.isBlank) {
+      // Optionally suppress leading blanks once (e.g., immediately after cite)
+      if (suppressNextLeadingBlanks) {
+        return; // skip
+      }
+      // allow up to MAX_CONSECUTIVE_BLANKS blanks
+      if (trailingBlank < MAX_CONSECUTIVE_BLANKS) {
+        paras.push(spec.paragraph);
+        trailingBlank += 1;
+      }
+    } else {
+      paras.push(spec.paragraph);
+      trailingBlank = 0;
+      // once we see content, disable suppression
+      suppressNextLeadingBlanks = false;
+    }
+  };
+
   for (const node of nodes) {
     if (node.kind === "tagline") {
-      const children = node.runs.map((r) =>
-        r.kind === "hl"
-          ? new TextRun({
-              text: r.text,
-              bold: false,
-              size: ptToHalfPoints(SIZES.highlightPt),
-              shading: { type: ShadingType.CLEAR, fill: COLORS.brightGreen, color: "auto" },
-              font: FONT,
-            })
-          : new TextRun({
-              text: r.text,
-              bold: true,
-              size: ptToHalfPoints(SIZES.taglinePt),
-              font: FONT,
-            })
-      );
-      paras.push(new Paragraph({ children }));
-      // No blank line after tagline - link goes directly underneath
+      // Render tagline and ensure exactly one blank line after
+      const specs = runsToParagraphSpecs(node.runs, "tagline");
+      for (const spec of specs) appendParagraphSpec(spec);
+      ensureExactlyOneTrailingBlank();
     } else if (node.kind === "text") {
-      const children = node.runs.map((r) =>
-        r.kind === "hl"
-          ? new TextRun({
-              text: r.text,
-              bold: false,
-              size: ptToHalfPoints(SIZES.highlightPt),
-              shading: { type: ShadingType.CLEAR, fill: COLORS.brightGreen, color: "auto" },
-              font: FONT,
-            })
-          : new TextRun({
-              text: r.text,
-              size: ptToHalfPoints(SIZES.textPt),
-              font: FONT,
-            })
-      );
-      paras.push(new Paragraph({ children }));
+      // Render text, compressing consecutive blank lines
+      const specs = runsToParagraphSpecs(node.runs, "text");
+      // If suppression is active, drop leading blanks in this chunk
+      if (suppressNextLeadingBlanks) {
+        let i = 0;
+        while (i < specs.length && specs[i].isBlank) i += 1;
+        // after dropping leading blanks, disable suppression
+        suppressNextLeadingBlanks = false;
+        for (; i < specs.length; i++) appendParagraphSpec(specs[i]);
+      } else {
+        for (const spec of specs) appendParagraphSpec(spec);
+      }
     } else if (node.kind === "link") {
       // Render as clickable hyperlink with styling
       const linkRun = new TextRun({
@@ -168,8 +244,11 @@ function renderParagraphs(nodes: RenderNode[]): Paragraph[] {
         link: node.href || node.text,
       });
       paras.push(new Paragraph({ children: [hyperlink] }));
-      // No blank line after link - controlled at card level
+      // Reset trailing blank count since we added content
+      trailingBlank = 0;
     } else if (node.kind === "cite") {
+      // Ensure exactly one blank line before cite
+      ensureExactlyOneTrailingBlank();
       const citeRun = new TextRun({
         text: node.text,
         italics: true,
@@ -180,8 +259,10 @@ function renderParagraphs(nodes: RenderNode[]): Paragraph[] {
         shading: { type: ShadingType.CLEAR, fill: COLORS.brightGreen, color: "auto" },
       });
       paras.push(new Paragraph({ children: [citeRun] }));
-      // blank line after cite
-      paras.push(new Paragraph({ children: [] }));
+      trailingBlank = 0;
+      // Ensure exactly one blank line after cite and suppress any additional leading blanks from following text
+      ensureExactlyOneTrailingBlank();
+      suppressNextLeadingBlanks = true;
     }
   }
   return paras;

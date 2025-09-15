@@ -429,6 +429,9 @@ body {
         0 4px 16px rgba(255, 255, 255, 0.8);
     background: var(--glass-bg);
     backdrop-filter: blur(40px);
+    -webkit-backdrop-filter: blur(40px);
+    border-radius: 6px;
+    padding: 2px 6px;
 }
 
 /* Hint staged fade with upward flow on split */
@@ -462,6 +465,9 @@ body {
     left: 1rem;
     background: var(--glass-bg);
     backdrop-filter: blur(40px);
+    -webkit-backdrop-filter: blur(40px);
+    border-radius: 6px;
+    padding: 2px 6px;
 }
 
 /* In split layout, controlled by JS classes */

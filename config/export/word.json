@@ -1,0 +1,53 @@
+{
+  "exporter": "docx",
+  "fileNameTemplate": "{date}_{slug(title)}_{shortid}.docx",
+  "page": {
+    "size": "LETTER",
+    "marginsTwips": { "top": 720, "right": 720, "bottom": 720, "left": 720 }
+  },
+  "fonts": {
+    "body": { "name": "Times New Roman", "pt": 12 },
+    "title": { "name": "Times New Roman", "pt": 16 },
+    "citation": { "name": "Times New Roman", "pt": 10 }
+  },
+  "styles": {
+    "title": {
+      "styleName": "Card Title",
+      "basedOn": "Heading1",
+      "bold": true,
+      "keepNext": true,
+      "spacing": { "after": 120 }
+    },
+    "citation": {
+      "styleName": "Citation",
+      "italic": true,
+      "color": "666666",
+      "spacing": { "after": 120 }
+    },
+    "quote": {
+      "styleName": "Quote",
+      "indentTwips": 720,
+      "border": { "left": { "color": "999999", "space": 1, "size": 6 } },
+      "lineSpacing": { "type": "exact", "lineTwips": 240 },
+      "keepLines": true
+    },
+    "highlight": { "color": "yellow" }
+  },
+  "highlightTag": "HL",
+  "citationFormat": "{author}. \"{title}.\" {source}, {date}. {url} (accessed {accessDate}).",
+  "footer": {
+    "show": true,
+    "left": "{url}",
+    "right": "Accessed {accessDate}"
+  },
+  "options": {
+    "blankLineBetweenParagraphs": true,
+    "normalizeSmartQuotes": true,
+    "stripExtraWhitespace": true
+  },
+  "metadata": {
+    "include": ["title", "author", "date", "url"],
+    "fallbackDate": "today"
+  }
+}
+

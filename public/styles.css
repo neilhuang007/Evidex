@@ -39,6 +39,77 @@ body {
     letter-spacing: -0.011em;
 }
 
+/* Initial minimal mode: show only URL input until link is entered */
+body.initial-mode .initial-extra {
+    /* Allow horizontal overflow so focused input scale is not clipped */
+    overflow-y: hidden;
+    overflow-x: visible;
+    max-height: 0;
+    opacity: 0;
+    transform: translateY(-6px);
+    pointer-events: none;
+    transition: max-height 0.44s cubic-bezier(0.34, 1, 0.64, 1),
+                opacity 0.3s ease,
+                transform 0.44s cubic-bezier(0.34, 1, 0.64, 1);
+}
+body.initial-mode .initial-extra.expanded {
+    max-height: 1000px; /* generous to avoid clipping during animation */
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+    /* Once expanded, allow overflow so focused elements can scale without clipping */
+    overflow-y: visible;
+    overflow-x: visible;
+}
+
+/* Small spacing when extra section is visible */
+body.initial-mode #initial-extra.expanded { margin-top: 0.75rem; }
+
+/* Center the single URL input within the glass card when minimal */
+body.initial-mode .input-card.center-single {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: auto; /* wrap to content height */
+}
+/* Add a small top margin so the URL input isn't stuck to the top border */
+body.initial-mode .input-card.center-single .input-group { margin-top: 0.5rem; }
+
+/* Ensure the card itself never clips the scaling input */
+body.initial-mode .input-card { overflow: visible; }
+
+/* Make the initial card wrap tightly around the single input */
+/* Keep original width and padding in initial mode as well */
+body.initial-mode .main-content .input-card {
+    width: 61.8%;
+    padding: calc(1.5rem * var(--phi));
+    align-self: auto;
+}
+
+/* Override vertical padding only when it's the single-field card */
+body.initial-mode .main-content .input-card.center-single { padding-top: 0; padding-bottom: 0; }
+
+/* Center the URL input area on first launch */
+body.initial-mode .container {
+    justify-content: center; /* center header + main as a block */
+    transform: none; /* exact centering, no vertical offset */
+}
+body.initial-mode .container:not(.is-split) { transform: none; }
+body.initial-mode .header { margin-bottom: calc(2rem * var(--phi)); }
+body.initial-mode .main-content {
+    flex: initial; /* let content size itself */
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start; /* keep internal flow natural */
+}
+body.initial-mode .main-content .input-card {
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+/* Reduce big gap under single URL input before expansion */
+body.initial-mode .input-group { margin-bottom: 0.5rem; }
+
 .background-gradient {
     position: fixed;
     top: 0;

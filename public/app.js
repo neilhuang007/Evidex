@@ -61,6 +61,7 @@ class CardCutterApp {
         this.urlInput = document.getElementById('url-input');
         this.claimInput = document.getElementById('claim-input');
         this.cutButton = document.getElementById('cut-button');
+        this.initialExtra = document.getElementById('initial-extra');
         this.mainRoot = document.getElementById('main-root');
         this.containerEl = document.querySelector('.container');
         this.titleEl = document.querySelector('.title');
@@ -75,6 +76,12 @@ class CardCutterApp {
         this.lastDeleted = null; // { type: 'card'|'group', card?, index?, items?: [card,index][] }
         this.cards = []; // in-memory list of all cut cards
         this._isSplit = false;
+        // Initial minimal mode: only show URL until link is valid
+        this.initialMode = !this.peekHasCards();
+        if (this.initialMode) {
+            document.body.classList.add('initial-mode');
+            if (this.inputCard) this.inputCard.classList.add('center-single');
+        }
         this.init();
     }
     
@@ -87,6 +94,7 @@ class CardCutterApp {
         this.urlInput.addEventListener('input', () => {
             this.validateInputs();
             this.updateHintState(this.urlInput);
+            this.maybeRevealInitialExtra();
         });
         this.claimInput.addEventListener('input', () => {
             this.validateInputs();
@@ -104,6 +112,39 @@ class CardCutterApp {
         });
         
         this.addInputAnimations();
+    }
+
+    // Check localStorage without mutating state
+    peekHasCards() {
+        try {
+            const raw = localStorage.getItem('cardsMemory');
+            if (!raw) return false;
+            const parsed = JSON.parse(raw);
+            return Array.isArray(parsed) && parsed.length > 0;
+        } catch { return false; }
+    }
+
+    // Reveal tagline + button when a valid link is entered in initial mode
+    maybeRevealInitialExtra() {
+        if (!this.initialMode || !this.initialExtra) return;
+        const urlValue = (this.urlInput?.value || '').trim();
+        // Expand on any non-empty input (no strict URL check for reveal)
+        const shouldExpand = urlValue.length > 0;
+        if (shouldExpand) {
+            if (!this.initialExtra.classList.contains('expanded')) {
+                this.initialExtra.classList.add('expanded');
+                this.initialExtra.setAttribute('aria-hidden', 'false');
+                // Focus tagline shortly after expand
+                setTimeout(() => this.claimInput && this.claimInput.focus(), 180);
+            }
+            if (this.inputCard) this.inputCard.classList.remove('center-single');
+        } else {
+            if (this.initialExtra.classList.contains('expanded')) {
+                this.initialExtra.classList.remove('expanded');
+                this.initialExtra.setAttribute('aria-hidden', 'true');
+            }
+            if (this.inputCard) this.inputCard.classList.add('center-single');
+        }
     }
     
     addInputAnimations() {
@@ -267,6 +308,10 @@ class CardCutterApp {
     switchToSplitLayout(animated = true) {
         if (this._isSplit) return;
         this._isSplit = true;
+        // Leaving initial minimal mode
+        this.initialMode = false;
+        document.body.classList.remove('initial-mode');
+        if (this.inputCard) this.inputCard.classList.remove('center-single');
 
         const PHI = 1.618, PHI_INV = 0.618, PHI_COMP = 0.382;
         const D382 = 382, D618 = 618, D1000 = 1000; // golden-ratio-inspired timings (ms)
@@ -290,8 +335,8 @@ class CardCutterApp {
             // Force layout calculation before transition
             if (this.mainRoot) void this.mainRoot.offsetHeight;
             
-            // Now switch layouts smoothly
-            requestAnimationFrame(() => {
+            // Now switch layouts; animate only when requested
+            const applySplitClasses = () => {
                 // Switch to two-column layout
                 if (this.mainRoot) {
                     this.mainRoot.classList.remove('main-content');
@@ -300,26 +345,45 @@ class CardCutterApp {
                 if (this.containerEl) {
                     this.containerEl.classList.add('is-split');
                 }
-                
-                // Add upward flow animation to container
-                if (animated && this.containerEl) {
-                    this.containerEl.classList.add('flow-up');
-                    setTimeout(() => {
-                        if (this.containerEl) this.containerEl.classList.remove('flow-up');
-                    }, D618);
-                }
-                
-                // Reveal the cuts panel with a smooth slide-in
+                // Reveal the cuts panel
                 if (this.cutsPanel) {
                     this.cutsPanel.style.display = '';
-                    requestAnimationFrame(() => {
-                        if (this.cutsPanel) {
-                            void this.cutsPanel.offsetWidth;
-                            this.cutsPanel.classList.add('show');
-                        }
+                    if (animated) {
+                        requestAnimationFrame(() => {
+                            if (this.cutsPanel) {
+                                void this.cutsPanel.offsetWidth;
+                                this.cutsPanel.classList.add('show');
+                            }
+                        });
+                    } else {
+                        this.cutsPanel.classList.add('show');
+                    }
+                }
+                // Ensure input hints are positioned/visible in non-animated loads
+                if (!animated) {
+                    if (this.urlInput) this.updateHintState(this.urlInput);
+                    if (this.claimInput) this.updateHintState(this.claimInput);
+                    const labelElsNow = this.inputCard ? Array.from(this.inputCard.querySelectorAll('.card-header, .input-label')) : [];
+                    labelElsNow.forEach(el => {
+                        el.classList.remove('reveal-prepare', 'reveal-in');
                     });
                 }
-            });
+            };
+
+            if (animated) {
+                requestAnimationFrame(() => {
+                    applySplitClasses();
+                    // Add upward flow animation to container
+                    if (this.containerEl) {
+                        this.containerEl.classList.add('flow-up');
+                        setTimeout(() => {
+                            if (this.containerEl) this.containerEl.classList.remove('flow-up');
+                        }, D618);
+                    }
+                });
+            } else {
+                applySplitClasses();
+            }
 
             // Smooth slide for input card
             if (animated && this.inputCard) {

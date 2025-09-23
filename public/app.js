@@ -701,65 +701,35 @@ class EditingPanel {
         return textNodes;
     }
 
-    // REPLACE: addHighlightsToSelection(range, contentElement, cardId)
+    // Position-based highlight addition - preserves text integrity
     addHighlightsToSelection(range, contentElement, cardId) {
         const selectedColor = this.selectedColors.get(cardId) || this.defaultColor;
         const rgbaColor = hexToRgba(selectedColor, 0.3);
 
-        // Work on a clone of current selection
-        const cloned = range.cloneContents();
-        const temp = document.createElement('div');
-        temp.appendChild(cloned);
+        // Step 1: Convert current DOM to position-based representation
+        const positionData = this.domToPositionData(contentElement);
 
-        // --- Key change: DO NOT flatten to textContent. ---
-        // Instead, unwrap existing highlight spans then wrap text nodes individually.
+        // Step 2: Get selection boundaries in absolute text positions
+        const selectionBounds = this.getSelectionBounds(range, contentElement);
+        if (!selectionBounds) return;
 
-        // 1) Unwrap any highlight spans inside the clone (preserve their children & structure)
-        temp.querySelectorAll('.highlight').forEach(span => {
-            while (span.firstChild) span.parentNode.insertBefore(span.firstChild, span);
-            span.remove();
+        // Step 3: Add new highlight range to position data
+        positionData.highlights.push({
+            start: selectionBounds.start,
+            end: selectionBounds.end,
+            color: rgbaColor
         });
 
-        // 2) Wrap each TEXT node in a fresh highlight span
-        const walker = document.createTreeWalker(temp, NodeFilter.SHOW_TEXT, null);
-        const toWrap = [];
-        while (walker.nextNode()) toWrap.push(walker.currentNode);
+        // Step 4: Merge overlapping/adjacent highlights
+        positionData.highlights = this.mergeHighlightRanges(positionData.highlights);
 
-        toWrap.forEach(tn => {
-            // Keep empty/whitespace-only nodes too (layout might matter)
-            const span = document.createElement('span');
-            span.className = 'highlight';
-            span.style.background = `linear-gradient(180deg, transparent 50%, ${rgbaColor} 50%)`;
-            span.textContent = tn.textContent;
-            tn.parentNode.replaceChild(span, tn);
-        });
+        // Step 5: Rebuild DOM from position data
+        this.rebuildDOMFromPositions(contentElement, positionData);
 
-        // Assemble fragment
-        const frag = document.createDocumentFragment();
-        while (temp.firstChild) frag.appendChild(temp.firstChild);
+        // Step 6: Restore selection to original positions
+        this.restoreSelectionByPositions(contentElement, selectionBounds.start, selectionBounds.end);
 
-        // Replace selection safely
-        range.deleteContents();
-        range.collapse(true);
-        const inserted = this.safeInsertFragmentAtRange(range, frag);
-
-        // Merge adjacent highlights at boundaries
-        this.mergeAdjacentHighlights(contentElement);
-        contentElement.normalize();
-
-        // Restore selection to show the result
-        if (inserted.length) {
-            const first = inserted[0];
-            const last = inserted[inserted.length - 1];
-            const sel = window.getSelection();
-            sel.removeAllRanges();
-            const newRange = document.createRange();
-            newRange.setStartBefore(first);
-            newRange.setEndAfter(last);
-            sel.addRange(newRange);
-        }
-
-        // Persist to storage
+        // Step 7: Save changes
         this.saveContentChanges(cardId, contentElement);
     }
 
@@ -874,71 +844,287 @@ class EditingPanel {
         });
     }
 
-    // REPLACE this method
+    // Position-based highlight removal - preserves text integrity
     removeHighlightsFromSelection(range, contentElement, cardId) {
-        // 1) Insert boundary markers at the current selection
-        const START = document.createTextNode('\u2063'); // INVISIBLE SEPARATOR
-        const END = document.createTextNode('\u2064'); // INVISIBLE PLUS
+        // Step 1: Convert current DOM to position-based representation
+        const positionData = this.domToPositionData(contentElement);
 
-        const r = range.cloneRange();
+        // Step 2: Get selection boundaries in absolute text positions
+        const selectionBounds = this.getSelectionBounds(range, contentElement);
+        if (!selectionBounds) return;
 
-        // Insert END first (at range end), then START at range start
-        const endR = r.cloneRange();
-        endR.collapse(false);
-        endR.insertNode(END);
+        // Step 3: Remove highlights that overlap with selection
+        positionData.highlights = this.removeHighlightRange(
+            positionData.highlights,
+            selectionBounds.start,
+            selectionBounds.end
+        );
 
-        const startR = r;
-        startR.collapse(true);
-        startR.insertNode(START);
+        // Step 4: Rebuild DOM from position data
+        this.rebuildDOMFromPositions(contentElement, positionData);
 
-        // 2) Define the middle range we want to unhighlight (between markers, exclusive)
-        const mid = document.createRange();
-        mid.setStartAfter(START);
-        mid.setEndBefore(END);
+        // Step 5: Restore selection to original positions
+        this.restoreSelectionByPositions(contentElement, selectionBounds.start, selectionBounds.end);
 
-        // 3) Extract the selected contents into a fragment
-        const extracted = mid.extractContents();
-
-        // 4) Unwrap any .highlight inside the extracted content
-        const temp = document.createElement('div');
-        temp.appendChild(extracted);
-        temp.querySelectorAll('.highlight').forEach(span => {
-            while (span.firstChild) span.parentNode.insertBefore(span.firstChild, span);
-            span.remove();
-        });
-
-        // Build a clean fragment back
-        const cleanFrag = document.createDocumentFragment();
-        while (temp.firstChild) cleanFrag.appendChild(temp.firstChild);
-
-        // 5) Move markers OUTSIDE any highlight spans so the insertion point is not wrapped
-        this.liftMarkerOutOfHighlight(START, 'after');   // START sits after any left highlight
-        this.liftMarkerOutOfHighlight(END, 'before');  // END   sits before any right highlight
-
-        // 6) Insert the clean (unhighlighted) content back between markers
-        END.parentNode.insertBefore(cleanFrag, END);
-
-        // 7) Clean up: remove empty highlight spans & merge adjacent
-        contentElement.querySelectorAll('.highlight').forEach(span => {
-            if (!span.textContent) span.remove();
-        });
-        this.mergeAdjacentHighlights(contentElement);
-        contentElement.normalize();
-
-        // 8) Restore a visible selection around the newly inserted content
-        const selRange = document.createRange();
-        selRange.setStartAfter(START);
-        selRange.setEndBefore(END);
-        const sel = window.getSelection();
-        sel.removeAllRanges();
-        sel.addRange(selRange);
-
-        // 9) Remove markers
-        START.remove();
-        END.remove();
-
-        // 10) Persist back to storage (<HL> serializer handles it)
+        // Step 6: Save changes
         this.saveContentChanges(cardId, contentElement);
+    }
+
+    // Convert DOM content to position-based data structure
+    domToPositionData(contentElement) {
+        const highlights = [];
+        let plainText = '';
+        let currentPos = 0;
+
+        const processNode = (node) => {
+            if (node.nodeType === Node.TEXT_NODE) {
+                plainText += node.textContent;
+                currentPos += node.textContent.length;
+            } else if (node.nodeType === Node.ELEMENT_NODE) {
+                if (node.classList && node.classList.contains('highlight')) {
+                    // Mark start of highlight
+                    const startPos = currentPos;
+                    const color = node.style.background || 'linear-gradient(180deg, transparent 50%, rgba(0, 255, 0, 0.3) 50%)';
+
+                    // Process children to get text
+                    for (let child of node.childNodes) {
+                        processNode(child);
+                    }
+
+                    // Mark end of highlight
+                    highlights.push({
+                        start: startPos,
+                        end: currentPos,
+                        color: color
+                    });
+                } else {
+                    // Process children of non-highlight elements
+                    for (let child of node.childNodes) {
+                        processNode(child);
+                    }
+                }
+            }
+        };
+
+        // Process all children
+        for (let child of contentElement.childNodes) {
+            processNode(child);
+        }
+
+        return { text: plainText, highlights };
+    }
+
+    // Get selection boundaries as absolute text positions
+    getSelectionBounds(range, contentElement) {
+        const text = contentElement.textContent || '';
+
+        // Clone range to avoid modifying original
+        const tempRange = range.cloneRange();
+
+        // Get start position
+        const startRange = document.createRange();
+        startRange.selectNodeContents(contentElement);
+        startRange.setEnd(tempRange.startContainer, tempRange.startOffset);
+        const startPos = startRange.toString().length;
+
+        // Get end position
+        const endRange = document.createRange();
+        endRange.selectNodeContents(contentElement);
+        endRange.setEnd(tempRange.endContainer, tempRange.endOffset);
+        const endPos = endRange.toString().length;
+
+        return { start: startPos, end: endPos };
+    }
+
+    // Merge overlapping or adjacent highlight ranges
+    mergeHighlightRanges(highlights) {
+        if (highlights.length === 0) return [];
+
+        // Sort by start position
+        highlights.sort((a, b) => a.start - b.start);
+
+        const merged = [];
+        let current = { ...highlights[0] };
+
+        for (let i = 1; i < highlights.length; i++) {
+            const next = highlights[i];
+
+            // Check if ranges overlap or are adjacent (same color)
+            if (current.end >= next.start && current.color === next.color) {
+                // Merge ranges
+                current.end = Math.max(current.end, next.end);
+            } else {
+                // No overlap, save current and move to next
+                merged.push(current);
+                current = { ...next };
+            }
+        }
+
+        merged.push(current);
+        return merged;
+    }
+
+    // Remove highlight ranges that overlap with selection
+    removeHighlightRange(highlights, selStart, selEnd) {
+        const result = [];
+
+        for (const hl of highlights) {
+            // No overlap - keep entire highlight
+            if (hl.end <= selStart || hl.start >= selEnd) {
+                result.push(hl);
+            }
+            // Partial overlap - split highlight
+            else {
+                // Keep part before selection
+                if (hl.start < selStart) {
+                    result.push({
+                        start: hl.start,
+                        end: selStart,
+                        color: hl.color
+                    });
+                }
+                // Keep part after selection
+                if (hl.end > selEnd) {
+                    result.push({
+                        start: selEnd,
+                        end: hl.end,
+                        color: hl.color
+                    });
+                }
+            }
+        }
+
+        return result;
+    }
+
+    // Rebuild DOM from position-based data
+    rebuildDOMFromPositions(contentElement, positionData) {
+        const { text, highlights } = positionData;
+
+        // Sort highlights by start position
+        const sortedHighlights = [...highlights].sort((a, b) => a.start - b.start);
+
+        // Merge overlapping highlights with same color
+        const merged = [];
+        for (let hl of sortedHighlights) {
+            if (merged.length === 0) {
+                merged.push({ ...hl });
+            } else {
+                const last = merged[merged.length - 1];
+                if (last.end >= hl.start && last.color === hl.color) {
+                    // Merge overlapping/adjacent
+                    last.end = Math.max(last.end, hl.end);
+                } else {
+                    merged.push({ ...hl });
+                }
+            }
+        }
+
+        // Build DOM fragments
+        const fragments = [];
+        let lastPos = 0;
+
+        for (let hl of merged) {
+            // Validate bounds
+            const start = Math.max(0, Math.min(hl.start, text.length));
+            const end = Math.max(start, Math.min(hl.end, text.length));
+
+            // Add text before highlight
+            if (start > lastPos) {
+                const beforeText = text.substring(lastPos, start);
+                if (beforeText) {
+                    fragments.push(document.createTextNode(beforeText));
+                }
+            }
+
+            // Add highlighted text
+            if (end > start) {
+                const hlText = text.substring(start, end);
+                const span = document.createElement('span');
+                span.className = 'highlight';
+                span.style.background = hl.color;
+                span.textContent = hlText;
+                fragments.push(span);
+            }
+
+            lastPos = end;
+        }
+
+        // Add remaining text
+        if (lastPos < text.length) {
+            const remainingText = text.substring(lastPos);
+            if (remainingText) {
+                fragments.push(document.createTextNode(remainingText));
+            }
+        }
+
+        // If no fragments were created but we have text, add it as plain text
+        if (fragments.length === 0 && text) {
+            fragments.push(document.createTextNode(text));
+        }
+
+        // Clear and rebuild DOM
+        contentElement.innerHTML = '';
+        fragments.forEach(frag => contentElement.appendChild(frag));
+    }
+
+    // Restore selection by absolute text positions
+    restoreSelectionByPositions(contentElement, startPos, endPos) {
+        const textNodes = [];
+        const walker = document.createTreeWalker(
+            contentElement,
+            NodeFilter.SHOW_TEXT,
+            null
+        );
+
+        let node;
+        while (node = walker.nextNode()) {
+            textNodes.push(node);
+        }
+
+        if (textNodes.length === 0) return;
+
+        // Find nodes and offsets for start and end positions
+        let currentPos = 0;
+        let startNode = null, startOffset = 0;
+        let endNode = null, endOffset = 0;
+
+        for (const textNode of textNodes) {
+            const nodeLength = textNode.textContent.length;
+            const nodeEnd = currentPos + nodeLength;
+
+            // Find start position
+            if (startNode === null && startPos >= currentPos && startPos <= nodeEnd) {
+                startNode = textNode;
+                startOffset = startPos - currentPos;
+            }
+
+            // Find end position
+            if (endNode === null && endPos >= currentPos && endPos <= nodeEnd) {
+                endNode = textNode;
+                endOffset = endPos - currentPos;
+            }
+
+            currentPos = nodeEnd;
+
+            // Stop if both found
+            if (startNode && endNode) break;
+        }
+
+        // Set selection if we found valid positions
+        if (startNode && endNode) {
+            try {
+                const range = document.createRange();
+                range.setStart(startNode, startOffset);
+                range.setEnd(endNode, endOffset);
+
+                const selection = window.getSelection();
+                selection.removeAllRanges();
+                selection.addRange(range);
+            } catch (e) {
+                console.warn('Could not restore selection:', e);
+            }
+        }
     }
 
     mergeAdjacentHighlights(contentElement) {

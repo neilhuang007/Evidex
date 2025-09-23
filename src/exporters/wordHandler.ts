@@ -1,31 +1,26 @@
-import { promises as fs } from "fs";
+import {promises as fs} from "fs";
 import * as path from "path";
-import {
-  Document,
-  Packer,
-  Paragraph,
-  TextRun,
-  ShadingType,
-  ExternalHyperlink,
-} from "docx";
+import {Document, ExternalHyperlink, Packer, Paragraph, ShadingType, TextRun,} from "docx";
 
 export type InlineRun = { kind: "plain" | "hl"; text: string };
 
 export type RenderNode =
-  | { kind: "tagline"; runs: InlineRun[] }
-  | { kind: "text"; runs: InlineRun[] }
+    | { kind: "tagline"; runs: InlineRun[]; highlightColor?: string }
+    | { kind: "text"; runs: InlineRun[]; highlightColor?: string }
   | { kind: "link"; href: string; text: string }
   | { kind: "cite"; text: string };
 
 export interface WordHandlerOptions {
   outputDir?: string; // default: "output"
   fileName?: string; // optional custom file name
+    highlightColor?: string; // custom highlight color (hex)
 }
 
 const FONT = "Times New Roman";
 const COLORS = {
   darkBlue: "002060", // Word dark blue
   brightGreen: "00FF00",
+    defaultHighlight: "00FF00",
 };
 
 const SIZES = {
@@ -41,7 +36,8 @@ function ptToHalfPoints(pt: number): number {
   return Math.round(pt * 2);
 }
 
-export function parseTagged(input: string): RenderNode[] {
+export function parseTagged(input: string, defaultHighlightColor?: string): RenderNode[] {
+    console.log('parseTagged called with color:', defaultHighlightColor);
   // Normalize newlines but DO NOT trim — preserve leading/trailing blanks
   const text = input.replace(/\r\n/g, "\n");
   const nodes: RenderNode[] = [];
@@ -54,7 +50,7 @@ export function parseTagged(input: string): RenderNode[] {
     // [TAGLINE]...[/TAGLINE]\n?
     let m = /^\[TAGLINE\]([\s\S]*?)\[\/TAGLINE\](?:\n)?/i.exec(s);
     if (m) {
-      nodes.push({ kind: "tagline", runs: parseRuns(m[1]) });
+        nodes.push({kind: "tagline", runs: parseRuns(m[1]), highlightColor: defaultHighlightColor});
       i += m[0].length;
       continue;
     }
@@ -85,7 +81,7 @@ export function parseTagged(input: string): RenderNode[] {
 
     const chunk = s.slice(0, end);
     if (chunk.length > 0) {
-      nodes.push({ kind: "text", runs: parseRuns(chunk) });
+        nodes.push({kind: "text", runs: parseRuns(chunk), highlightColor: defaultHighlightColor});
       i += chunk.length;
       continue;
     }
@@ -99,10 +95,22 @@ export function parseTagged(input: string): RenderNode[] {
 
 function parseRuns(text: string): InlineRun[] {
   const runs: InlineRun[] = [];
-  const re = /<HL>([\s\S]*?)<\/HL>/gi;
+    console.log('parseRuns input text:', text);
+
+    // Support both <HL> and <hl> tags (case insensitive)
+    const re = /<hl>([\s\S]*?)<\/hl>/gi;
+
+    // First normalize the text to ensure consistent case
+    const originalText = text;
+    text = text.replace(/<HL>/gi, '<hl>').replace(/<\/HL>/gi, '</hl>');
+    console.log('parseRuns normalized text:', text);
+
   let lastIndex = 0;
   let m: RegExpExecArray | null;
+    let matchCount = 0;
   while ((m = re.exec(text)) !== null) {
+      matchCount++;
+      console.log(`Found highlight match ${matchCount}:`, m[1]);
     const idx = m.index;
     if (idx > lastIndex) {
       runs.push({ kind: "plain", text: text.slice(lastIndex, idx) });
@@ -113,22 +121,31 @@ function parseRuns(text: string): InlineRun[] {
   if (lastIndex < text.length) {
     runs.push({ kind: "plain", text: text.slice(lastIndex) });
   }
+    console.log(`parseRuns found ${matchCount} highlights, returning ${runs.length} runs`);
   return runs;
 }
 
-function renderParagraphs(nodes: RenderNode[]): Paragraph[] {
+function renderParagraphs(nodes: RenderNode[], defaultHighlightColor?: string): Paragraph[] {
   const paras: Paragraph[] = [];
   let trailingBlank = 0; // count of consecutive trailing blank paragraphs
   let suppressNextLeadingBlanks = false; // used to prevent extra blanks right after cite
 
-  const makeRun = (r: InlineRun, mode: "tagline" | "text") => {
+    const makeRun = (r: InlineRun, mode: "tagline" | "text", nodeHighlightColor?: string) => {
+        // Use node-specific color, then default color, then fallback
+        const hlColor = nodeHighlightColor ? nodeHighlightColor.replace('#', '') :
+            defaultHighlightColor ? defaultHighlightColor.replace('#', '') :
+                COLORS.brightGreen;
+        if (r.kind === "hl") {
+            console.log(`Creating highlight run with color: ${hlColor} (node: ${nodeHighlightColor}, default: ${defaultHighlightColor})`);
+        }
+
     if (mode === "tagline") {
       return r.kind === "hl"
         ? new TextRun({
             text: r.text,
-            bold: false,
+              bold: true,
             size: ptToHalfPoints(SIZES.highlightPt),
-            shading: { type: ShadingType.CLEAR, fill: COLORS.brightGreen, color: "auto" },
+              shading: {type: ShadingType.CLEAR, fill: hlColor, color: "auto"},
             font: FONT,
           })
         : new TextRun({
@@ -142,9 +159,9 @@ function renderParagraphs(nodes: RenderNode[]): Paragraph[] {
     return r.kind === "hl"
       ? new TextRun({
           text: r.text,
-          bold: false,
+            bold: true,
           size: ptToHalfPoints(SIZES.highlightPt),
-          shading: { type: ShadingType.CLEAR, fill: COLORS.brightGreen, color: "auto" },
+            shading: {type: ShadingType.CLEAR, fill: hlColor, color: "auto"},
           font: FONT,
         })
       : new TextRun({
@@ -156,7 +173,8 @@ function renderParagraphs(nodes: RenderNode[]): Paragraph[] {
 
   const runsToParagraphSpecs = (
     runs: InlineRun[],
-    mode: "tagline" | "text"
+    mode: "tagline" | "text",
+    nodeHighlightColor?: string
   ): { paragraph: Paragraph; isBlank: boolean }[] => {
     const paraRuns: TextRun[][] = [[]];
     for (const r of runs) {
@@ -164,7 +182,7 @@ function renderParagraphs(nodes: RenderNode[]): Paragraph[] {
       for (let i = 0; i < parts.length; i++) {
         const part = parts[i];
         if (part.length > 0) {
-          paraRuns[paraRuns.length - 1].push(makeRun({ ...r, text: part }, mode));
+            paraRuns[paraRuns.length - 1].push(makeRun({...r, text: part}, mode, nodeHighlightColor));
         }
         if (i < parts.length - 1) {
           // newline boundary -> start a new paragraph
@@ -215,12 +233,12 @@ function renderParagraphs(nodes: RenderNode[]): Paragraph[] {
   for (const node of nodes) {
     if (node.kind === "tagline") {
       // Render tagline and ensure exactly one blank line after
-      const specs = runsToParagraphSpecs(node.runs, "tagline");
+        const specs = runsToParagraphSpecs(node.runs, "tagline", node.highlightColor);
       for (const spec of specs) appendParagraphSpec(spec);
       ensureExactlyOneTrailingBlank();
     } else if (node.kind === "text") {
       // Render text, compressing consecutive blank lines
-      const specs = runsToParagraphSpecs(node.runs, "text");
+        const specs = runsToParagraphSpecs(node.runs, "text", node.highlightColor);
       // If suppression is active, drop leading blanks in this chunk
       if (suppressNextLeadingBlanks) {
         let i = 0;
@@ -249,6 +267,8 @@ function renderParagraphs(nodes: RenderNode[]): Paragraph[] {
     } else if (node.kind === "cite") {
       // Ensure exactly one blank line before cite
       ensureExactlyOneTrailingBlank();
+        // Use the default highlight color for cite background, fallback to brightGreen
+        const citeColor = defaultHighlightColor ? defaultHighlightColor.replace('#', '') : COLORS.brightGreen;
       const citeRun = new TextRun({
         text: node.text,
         italics: true,
@@ -256,7 +276,7 @@ function renderParagraphs(nodes: RenderNode[]): Paragraph[] {
         color: "000000",
         size: ptToHalfPoints(SIZES.citePt),
         font: FONT,
-        shading: { type: ShadingType.CLEAR, fill: COLORS.brightGreen, color: "auto" },
+          shading: {type: ShadingType.CLEAR, fill: citeColor, color: "auto"},
       });
       paras.push(new Paragraph({ children: [citeRun] }));
       trailingBlank = 0;
@@ -268,7 +288,7 @@ function renderParagraphs(nodes: RenderNode[]): Paragraph[] {
   return paras;
 }
 
-export async function renderDocxBuffer(nodes: RenderNode[]): Promise<Buffer> {
+export async function renderDocxBuffer(nodes: RenderNode[], defaultHighlightColor?: string): Promise<Buffer> {
   const doc = new Document({
     styles: {
       default: {
@@ -280,7 +300,7 @@ export async function renderDocxBuffer(nodes: RenderNode[]): Promise<Buffer> {
     sections: [
       {
         properties: {},
-        children: renderParagraphs(nodes),
+          children: renderParagraphs(nodes, defaultHighlightColor),
       },
     ],
   });
@@ -293,8 +313,8 @@ export async function writeTaggedToDocx(
   input: string,
   opts: WordHandlerOptions = {}
 ): Promise<string> {
-  const nodes = parseTagged(input);
-  const buffer = await renderDocxBuffer(nodes);
+    const nodes = parseTagged(input, opts.highlightColor);
+    const buffer = await renderDocxBuffer(nodes, opts.highlightColor);
 
   const outputDir = opts.outputDir || path.resolve("output");
   await fs.mkdir(outputDir, { recursive: true });
@@ -317,3 +337,4 @@ Researchers find that <HL>AI assistance</HL> reduces task time by 23% across wri
   `.trim();
   return writeTaggedToDocx(sample);
 }
+

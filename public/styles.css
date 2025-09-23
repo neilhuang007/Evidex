@@ -8,6 +8,7 @@
     --primary-color: #5e72e4;
     --primary-dark: #4c63d2;
     --primary-light: #7b8cee;
+    --copy-accent: #06b6d4; /* teal accent for copy */
     --text-primary: #2c3e50;
     --text-secondary: #64748b;
     --text-tertiary: #94a3b8;
@@ -912,6 +913,95 @@ body.initial-mode .input-group { margin-bottom: 0.5rem; }
 .cuts-empty { color: var(--text-tertiary); font-size: 0.9rem; text-align: center; padding: 1.25rem 0.75rem; }
 .cuts-footer { margin-top: auto; }
 
+/* Side-by-side actions within cuts footer */
+.cuts-footer .action-buttons {
+    display: flex;
+    --action-gap: calc(0.75rem * var(--phi-comp));
+    gap: var(--action-gap);
+    flex-wrap: nowrap;
+    width: 100%;
+}
+
+.cuts-footer .action-buttons > .primary-button,
+.cuts-footer .action-buttons > .secondary-button {
+    width: auto; /* override global 100% on primary */
+    flex: 1 1 calc((100% - var(--action-gap)) / 2);
+    max-width: calc((100% - var(--action-gap)) / 2);
+    min-width: calc((100% - var(--action-gap)) / 2);
+}
+
+/* Copy button: same overall style and size as primary, but glassy */
+.cuts-footer .action-buttons > .copy-button {
+    --btn-pad-v: 0.75rem;
+    padding: var(--btn-pad-v) calc(var(--btn-pad-v) * var(--phi));
+    font-size: 0.9375rem;
+    border-radius: 12px;
+    border: 3px solid rgba(255, 255, 255, 0.55);
+    background: rgba(255, 255, 255, 0.38);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    color: var(--text-primary);
+    transition: background 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 8px 26px rgba(15, 23, 42, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0;
+    overflow: hidden;
+}
+
+.cuts-footer .action-buttons > .copy-button:hover,
+.cuts-footer .action-buttons > .copy-button:focus-visible {
+    color: var(--copy-accent);
+    background: rgba(255, 255, 255, 0.15);
+    transform: translateY(-2px);
+    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+.cuts-footer .action-buttons > .copy-button:active {
+    transform: translateY(0);
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.copy-button .button-icon {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.82);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s cubic-bezier(0.165, 0.84, 0.44, 1),
+    transform 0.25s cubic-bezier(0.165, 0.84, 0.44, 1),
+    color 0.25s cubic-bezier(0.165, 0.84, 0.44, 1);
+}
+
+.copy-button:hover .button-icon,
+.copy-button:focus-visible .button-icon {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+    color: var(--copy-accent);
+}
+
+.copy-button .button-text {
+    flex: 1 0 auto;
+    text-align: center;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.copy-button:hover .button-text,
+.copy-button:focus-visible .button-text {
+    opacity: 0;
+    transform: translateY(-6px);
+}
+
 .card-group {
     position: relative;
     border: 1px solid rgba(226,232,240,0.6);
@@ -992,12 +1082,129 @@ body.initial-mode .input-group { margin-bottom: 0.5rem; }
     .secondary-button {
         width: 100%;
     }
-    
+
+    .cuts-footer .action-buttons {
+        flex-direction: row;
+    }
+
+    .cuts-footer .action-buttons > .primary-button,
+    .cuts-footer .action-buttons > .secondary-button {
+        width: auto;
+    }
+
     .gradient-orb {
         filter: blur(80px);
     }
 }
 
+/* Inline Editing Panel Styles */
+.card-editing-panel {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 0;
+    margin-top: 8px;
+    opacity: 0;
+    max-height: 0;
+    overflow: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card-editing-panel.show {
+    opacity: 1;
+    max-height: 48px;
+}
+
+.editing-tools {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    height: 28px;
+    margin-top: 4px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid rgba(226, 232, 240, 0.6);
+}
+
+.highlight-toggle {
+    padding: 4px 8px;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 14px;
+    color: var(--text-secondary);
+    height: 24px;
+    line-height: 16px;
+    outline: none;
+}
+
+.highlight-toggle:hover {
+    background: rgba(94, 114, 228, 0.08);
+}
+
+.highlight-toggle.active {
+    background: rgba(94, 114, 228, 0.2);
+    color: var(--primary-color);
+}
 
 
+/* Color picker container */
+.color-picker-container {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    position: relative;
+    overflow: visible;
+    cursor: pointer;
+    flex-shrink: 0;
+    align-self: center;
+}
+
+/* Override Pickr styles for minimal appearance */
+.pcr-button {
+    width: 14px !important;
+    height: 14px !important;
+    margin-left: 4px !important;
+    margin-bottom: 10px !important;
+    position: relative !important;
+}
+
+.pcr-app {
+    border-radius: 8px !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12) !important;
+}
+
+/* Make card content clickable and editable */
+.group-content {
+    cursor: text;
+    transition: background-color 0.15s ease;
+    position: relative;
+}
+
+.group-content:hover {
+    background: rgba(94, 114, 228, 0.02);
+    border-radius: 4px;
+}
+
+/* Editable content state */
+.group-content[contenteditable="true"] {
+    background: rgba(94, 114, 228, 0.05);
+    border: 1px dashed rgba(94, 114, 228, 0.3);
+    border-radius: 4px;
+    padding: 4px;
+    outline: none;
+}
+
+.group-content[contenteditable="true"]:focus {
+    background: rgba(94, 114, 228, 0.08);
+    border-color: rgba(94, 114, 228, 0.5);
+    box-shadow: 0 0 0 2px rgba(94, 114, 228, 0.1);
+}
+
+/* Text selection styling in editable content */
+.group-content[contenteditable="true"]::selection {
+    background: rgba(94, 114, 228, 0.2);
+}
 

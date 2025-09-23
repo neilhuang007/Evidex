@@ -1,9 +1,9 @@
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
-import { promises as fs } from 'fs';
-import { convertContentParts, generateWithRetry } from './ai/gemini-wrapper';
-import { parseTagged, renderDocxBuffer } from './exporters/wordHandler';
+import {promises as fs} from 'fs';
+import {convertContentParts, generateWithRetry} from './ai/gemini-wrapper';
+import {parseTagged, renderDocxBuffer} from './exporters/wordHandler';
 
 // Vercel provides env vars via process.env; prefer GEMINI_API_KEY
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
@@ -86,7 +86,7 @@ function coerceJson(text: string): any | null {
 
 app.post('/api/download-docx', async (req, res) => {
   try {
-    const { tagline, link, cite, content } = req.body || {};
+      const {tagline, link, cite, content, highlightColor} = req.body || {};
     if (!tagline || !link || !cite || !content) {
       return res.status(400).json({ error: 'tagline, link, cite, and content are required' });
     }
@@ -100,8 +100,8 @@ app.post('/api/download-docx', async (req, res) => {
 ${content}
 `.trim();
 
-    const nodes = parseTagged(taggedBlock);
-    const buffer = await renderDocxBuffer(nodes);
+      const nodes = parseTagged(taggedBlock, highlightColor);
+      const buffer = await renderDocxBuffer(nodes, highlightColor);
 
     const safe = (s: string) => s.replace(/[^a-z0-9]+/gi, '_').replace(/^_+|_+$/g, '').slice(0, 60) || 'card';
     const fileName = `${safe(cite)}_${Date.now()}.docx`;
@@ -123,25 +123,35 @@ app.post('/api/download-docx-bulk', async (req, res) => {
       return res.status(400).json({ error: 'cards[] required' });
     }
 
-    const blocks: string[] = [];
+      const allNodes: any[] = [];
+
     for (const c of cards) {
       const tagline = (c?.tagline ?? '').toString();
       const link = (c?.link ?? '').toString();
       const cite = (c?.cite ?? '').toString();
       const content = (c?.content ?? '').toString();
-      blocks.push(`
+        const cardColor = c?.highlightColor;
+
+        const cardTagged = `
 [TAGLINE]${tagline}[/TAGLINE]
 [LINK]${link}[/LINK]
 
 [CITE]${cite}[/CITE]
 
 ${content}
-`.trim());
+`.trim();
+
+        // Parse this card with its specific color
+        const cardNodes = parseTagged(cardTagged, cardColor);
+        allNodes.push(...cardNodes);
+
+        // Add spacing between cards (2 blank paragraphs)
+        if (allNodes.length > 0) {
+            allNodes.push({kind: "text", runs: [{kind: "plain", text: "\n\n"}]});
+        }
     }
 
-    const tagged = blocks.join('\n\n\n'); // Extra blank line between cards
-    const nodes = parseTagged(tagged);
-    const buffer = await renderDocxBuffer(nodes);
+      const buffer = await renderDocxBuffer(allNodes);
 
     const fileName = `cards_${Date.now()}.docx`;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');

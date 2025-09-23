@@ -1,5 +1,5 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { parseTagged, renderDocxBuffer } from '../src/exporters/wordHandler';
+import type {VercelRequest, VercelResponse} from '@vercel/node';
+import {parseTagged, renderDocxBuffer} from '../src/exporters/wordHandler';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -8,30 +8,42 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
   try {
     const { cards } = (req.body || {}) as any;
+      console.log('Received cards data:', JSON.stringify(cards, null, 2));
     if (!Array.isArray(cards) || cards.length === 0) {
       res.status(400).json({ error: 'cards[] required' });
       return;
     }
 
-    const blocks: string[] = [];
+      const allNodes: any[] = [];
+
     for (const c of cards) {
       const tagline = (c?.tagline ?? '').toString();
       const link = (c?.link ?? '').toString();
       const cite = (c?.cite ?? '').toString();
       const content = (c?.content ?? '').toString();
-      blocks.push(`
+        const cardColor = c?.highlightColor;
+        console.log(`Card "${cite}" highlight color:`, cardColor);
+
+        const cardTagged = `
 [TAGLINE]${tagline}[/TAGLINE]
 [LINK]${link}[/LINK]
 
 [CITE]${cite}[/CITE]
 
 ${content}
-`.trim());
+`.trim();
+
+        // Parse this card with its specific color
+        const cardNodes = parseTagged(cardTagged, cardColor);
+        allNodes.push(...cardNodes);
+
+        // Add spacing between cards (2 blank paragraphs)
+        if (allNodes.length > 0) {
+            allNodes.push({kind: "text", runs: [{kind: "plain", text: "\n\n"}]});
+        }
     }
 
-    const tagged = blocks.join('\n\n\n'); // Extra blank line between cards
-    const nodes = parseTagged(tagged);
-    const buffer = await renderDocxBuffer(nodes);
+      const buffer = await renderDocxBuffer(allNodes);
 
     const fileName = `cards_${Date.now()}.docx`;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');

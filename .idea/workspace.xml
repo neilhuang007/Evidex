@@ -4,15 +4,17 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="041964c1-da3b-43da-9e6c-5bf4f34492c5" name="更改" comment="更改">
-      <change afterPath="$PROJECT_DIR$/package.json" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tsconfig.json" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/dist/ai/gemini-wrapper.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/dist/exporters/wordHandler.js" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/dist/server.js" beforeDir="false" />
+    <list default="true" id="041964c1-da3b-43da-9e6c-5bf4f34492c5" name="更改" comment="Added readme.md">
+      <change afterPath="$PROJECT_DIR$/qodana.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/api/download-docx-bulk.ts" beforeDir="false" afterPath="$PROJECT_DIR$/api/download-docx-bulk.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/api/download-docx.ts" beforeDir="false" afterPath="$PROJECT_DIR$/api/download-docx.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/config/prompts/card_cutter.json" beforeDir="false" afterPath="$PROJECT_DIR$/config/prompts/card_cutter.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/public/app.js" beforeDir="false" afterPath="$PROJECT_DIR$/public/app.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/public/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/public/index.html" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/public/styles.css" beforeDir="false" afterPath="$PROJECT_DIR$/public/styles.css" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/exporters/wordHandler.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/exporters/wordHandler.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/server.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/server.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -34,6 +36,9 @@
     &quot;accountId&quot;: &quot;2f0358b5-c2e7-4817-b7ff-877336879e84&quot;
   }
 }</component>
+  <component name="ProblemsViewState">
+    <option name="selectedTabId" value="QODANA_PROBLEMS_VIEW_TAB" />
+  </component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 8
 }</component>
@@ -59,6 +64,11 @@
     &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
 }</component>
+  <component name="QodanaReportsService">
+    <option name="descriptions">
+      <ReportDescription localRun="true" path="C:\Users\neil_\AppData\Local\Temp\qodana_output1\qodana.sarif.json" reportGuid="306e89d5-c036-4f74-ad7f-2494e5458ee9" reportId="AI card cutter/qodana/2025-09-22" />
+    </option>
+  </component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="C:\Users\neil_\WebstormProjects\AI card cutter\dist" />
@@ -68,7 +78,7 @@
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-js-predefined-d6986cc7102b-b598e85cdad2-JavaScript-WS-252.25557.126" />
+        <option value="bundled-js-predefined-d6986cc7102b-9c94529fcfe0-JavaScript-WS-252.26199.162" />
       </set>
     </attachedChunks>
   </component>
@@ -82,16 +92,50 @@
       <workItem from="1757707681877" duration="30000" />
       <workItem from="1757707730078" duration="6667000" />
       <workItem from="1757882508718" duration="17641000" />
-      <workItem from="1757936195143" duration="1078000" />
+      <workItem from="1757936195143" duration="5296000" />
+      <workItem from="1757969536746" duration="3067000" />
+      <workItem from="1758055924754" duration="7677000" />
+      <workItem from="1758229455057" duration="40000" />
+      <workItem from="1758229518758" duration="38000" />
+      <workItem from="1758573943075" duration="783000" />
+      <workItem from="1758576066669" duration="12333000" />
+      <workItem from="1758630279397" duration="39000" />
+      <workItem from="1758636849643" duration="491000" />
     </task>
+    <task id="LOCAL-00001" summary="Refactor input hint behavior and add initial project configuration">
+      <option name="closed" value="true" />
+      <created>1757942624054</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1757942624054</updated>
+    </task>
+    <task id="LOCAL-00002" summary="Add initial extra section for tagline and button in minimal mode">
+      <option name="closed" value="true" />
+      <created>1757955599787</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1757955599787</updated>
+    </task>
+    <task id="LOCAL-00003" summary="Added readme.md">
+      <option name="closed" value="true" />
+      <created>1757970590383</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1757970590383</updated>
+    </task>
+    <option name="localTasksCounter" value="4" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
-    <option name="exactExcludedFiles">
-      <list>
-        <option value="$PROJECT_DIR$/tests/wordHandler.test.js" />
-      </list>
-    </option>
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="Refactor input hint behavior and add initial project configuration" />
+    <MESSAGE value="Add initial extra section for tagline and button in minimal mode" />
+    <MESSAGE value="Added readme.md" />
+    <option name="LAST_COMMIT_MESSAGE" value="Added readme.md" />
   </component>
 </project>

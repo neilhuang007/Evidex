@@ -1,10 +1,10 @@
-# AI Card Cutter
+# Evidex
 
 A web application for generating debate cards by extracting and formatting evidence from web sources using the Google Gemini API.
 
 ## Overview
 
-AI Card Cutter streamlines the debate research process by automatically extracting relevant evidence from web sources and formatting it into properly structured debate cards. The application leverages AI to identify supporting evidence for specific taglines and exports them in standard debate formats.
+Evidex streamlines the research process by automatically extracting relevant evidence from web sources and formatting it into properly structured debate cards. The application leverages AI to identify supporting evidence for specific taglines and exports them in standard debate formats.
 
 ## Features
 
@@ -26,8 +26,8 @@ AI Card Cutter streamlines the debate research process by automatically extracti
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/ai-card-cutter.git
-cd ai-card-cutter
+git clone https://github.com/yourusername/evidex.git
+cd evidex
 
 # Install dependencies
 npm install
@@ -50,7 +50,7 @@ GEMINI_API_KEY=your_gemini_api_key_here
 ## Project Structure
 
 ```
-ai-card-cutter/
+evidex/
 ├── src/
 │   ├── ai/                 # AI integration modules
 │   ├── exporters/          # Document export handlers

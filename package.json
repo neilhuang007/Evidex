@@ -1,7 +1,7 @@
 {
-  "name": "ai-card-cutter",
+  "name": "evidex",
   "version": "1.0.0",
-  "description": "AI-powered debate card cutter",
+  "description": "AI-powered research evidence extraction tool",
   "main": "dist/server.js",
   "scripts": {
     "build": "tsc",

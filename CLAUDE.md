@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-AI Card Cutter - A web application for generating debate cards by extracting and formatting evidence from web sources using the Gemini API.
+Evidex - A web application for extracting and formatting research evidence from web sources using the Gemini API.
 
 ## Architecture
 

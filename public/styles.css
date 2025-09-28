@@ -1014,7 +1014,18 @@ body.initial-mode .input-group { margin-bottom: 0.5rem; }
 .card-group:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(16,24,40,0.10); background: rgba(255,255,255,0.8); }
 
 .group-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: calc(1rem * var(--phi-comp)); }
-.group-title { font-weight: 600; font-size: 1rem; color: var(--text-primary); letter-spacing: -0.01em; }
+.group-title {
+    font-weight: 600;
+    font-size: 1rem;
+    color: var(--text-primary);
+    letter-spacing: -0.01em;
+    cursor: pointer;
+}
+
+.group-title:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+}
 .group-delete {
     position: relative; right: 0; top: 0; width: 28px; height: 28px; border-radius: 999px;
     border: 1px solid rgba(226,232,240,0.7); background: rgba(255,255,255,0.8);

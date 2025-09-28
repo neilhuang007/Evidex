@@ -717,7 +717,7 @@ class EditingPanel {
         positionData.highlights.push({
             start: selectionBounds.start,
             end: selectionBounds.end,
-            color: rgbaColor
+            color: `linear-gradient(180deg, transparent 50%, ${rgbaColor} 50%)`
         });
 
         // Step 4: Merge overlapping/adjacent highlights
@@ -1660,6 +1660,23 @@ class CardCutterApp {
             const title = document.createElement('div');
             title.className = 'group-title';
             title.textContent = tagline;
+            title.setAttribute('role', 'button');
+            title.setAttribute('tabindex', '0');
+            title.setAttribute('title', 'Copy this evidence group');
+            const cardsForGroup = Array.from(list);
+            const triggerCopy = () => {
+                this.handleCopyGroup(tagline, cardsForGroup);
+            };
+            title.addEventListener('click', (event) => {
+                event.preventDefault();
+                triggerCopy();
+            });
+            title.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    triggerCopy();
+                }
+            });
             const del = document.createElement('button');
             del.className = 'group-delete';
             del.setAttribute('title', 'Delete group');
@@ -2085,35 +2102,38 @@ class CardCutterApp {
         }
     }
 
-    // Build HTML that mirrors the Word doc formatting and copy to clipboard
-    async handleCopyAll() {
-        if (!this.cards.length) {
-            this.showToast('No cards to copy', 'error');
+    async copyCardsToClipboard(cards, messages = {}) {
+        const {
+            empty = 'No cards to copy',
+            formatted = 'Copied cards to clipboard',
+            plain = 'Copied cards (plain text) to clipboard'
+        } = messages;
+
+        if (!Array.isArray(cards) || cards.length === 0) {
+            this.showToast(empty, 'error');
             return;
         }
-        try {
-            const html = this.buildClipboardHtml(this.cards);
-            const plaintext = this.buildClipboardPlain(this.cards);
 
-            // Preferred modern API: write HTML + plain text
+        try {
+            const html = this.buildClipboardHtml(cards);
+            const plaintext = this.buildClipboardPlain(cards);
+
             if (navigator.clipboard && window.ClipboardItem) {
                 const item = new ClipboardItem({
                     'text/html': new Blob([html], {type: 'text/html'}),
                     'text/plain': new Blob([plaintext], {type: 'text/plain'})
                 });
                 await navigator.clipboard.write([item]);
-                this.showToast('Copied formatted cards to clipboard', 'success');
+                this.showToast(formatted, 'success');
                 return;
             }
 
-            // Fallback to writeText (plain only)
             if (navigator.clipboard && navigator.clipboard.writeText) {
                 await navigator.clipboard.writeText(plaintext);
-                this.showToast('Copied cards (plain text) to clipboard', 'success');
+                this.showToast(plain, 'success');
                 return;
             }
 
-            // Legacy fallback using a hidden contentEditable element (copies HTML)
             const hidden = document.createElement('div');
             hidden.setAttribute('contenteditable', 'true');
             hidden.style.position = 'fixed';
@@ -2129,12 +2149,33 @@ class CardCutterApp {
             const ok = document.execCommand('copy');
             sel.removeAllRanges();
             document.body.removeChild(hidden);
-            if (ok) this.showToast('Copied formatted cards to clipboard', 'success');
-            else throw new Error('execCommand copy failed');
+            if (ok) {
+                this.showToast(formatted, 'success');
+            } else {
+                throw new Error('execCommand copy failed');
+            }
         } catch (e) {
             console.error('Copy failed:', e);
             this.showToast('Failed to copy to clipboard', 'error');
         }
+    }
+
+    // Build HTML that mirrors the Word doc formatting and copy to clipboard
+    async handleCopyAll() {
+        await this.copyCardsToClipboard(this.cards, {
+            empty: 'No cards to copy',
+            formatted: 'Copied formatted cards to clipboard',
+            plain: 'Copied cards (plain text) to clipboard'
+        });
+    }
+
+    async handleCopyGroup(tagline, cards) {
+        const label = (tagline || '').trim() || '(untitled)';
+        await this.copyCardsToClipboard(cards, {
+            empty: 'No evidence in this group to copy',
+            formatted: `Copied "${label}" to clipboard`,
+            plain: `Copied "${label}" (plain text) to clipboard`
+        });
     }
 
     // ==== Clipboard builders ====
@@ -2395,8 +2436,4 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize editing panel globally
     window.editingPanel = new EditingPanel();
 });
-
-
-
-
 

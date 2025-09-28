@@ -4,17 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="041964c1-da3b-43da-9e6c-5bf4f34492c5" name="更改" comment="Added readme.md">
-      <change afterPath="$PROJECT_DIR$/qodana.yaml" afterDir="false" />
+    <list default="true" id="041964c1-da3b-43da-9e6c-5bf4f34492c5" name="更改" comment="ft. added chatgpt agent instructions">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/api/download-docx-bulk.ts" beforeDir="false" afterPath="$PROJECT_DIR$/api/download-docx-bulk.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/api/download-docx.ts" beforeDir="false" afterPath="$PROJECT_DIR$/api/download-docx.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/config/prompts/card_cutter.json" beforeDir="false" afterPath="$PROJECT_DIR$/config/prompts/card_cutter.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/public/app.js" beforeDir="false" afterPath="$PROJECT_DIR$/public/app.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/public/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/public/index.html" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/public/styles.css" beforeDir="false" afterPath="$PROJECT_DIR$/public/styles.css" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/exporters/wordHandler.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/exporters/wordHandler.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/server.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/server.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -23,6 +16,7 @@
   </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+    <option name="RESET_MODE" value="HARD" />
   </component>
   <component name="GitHubPullRequestSearchHistory">{
   &quot;lastFilter&quot;: {
@@ -126,7 +120,15 @@
       <option name="project" value="LOCAL" />
       <updated>1757970590383</updated>
     </task>
-    <option name="localTasksCounter" value="4" />
+    <task id="LOCAL-00004" summary="ft. added chatgpt agent instructions">
+      <option name="closed" value="true" />
+      <created>1759092512775</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1759092512775</updated>
+    </task>
+    <option name="localTasksCounter" value="5" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -136,6 +138,7 @@
     <MESSAGE value="Refactor input hint behavior and add initial project configuration" />
     <MESSAGE value="Add initial extra section for tagline and button in minimal mode" />
     <MESSAGE value="Added readme.md" />
-    <option name="LAST_COMMIT_MESSAGE" value="Added readme.md" />
+    <MESSAGE value="ft. added chatgpt agent instructions" />
+    <option name="LAST_COMMIT_MESSAGE" value="ft. added chatgpt agent instructions" />
   </component>
 </project>

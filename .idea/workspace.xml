@@ -1,12 +1,28 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
+  <component name="AIAssistantCustomInstructionsStorage">
+    <option name="instructions">
+      <map>
+        <entry key="AIAssistant.VCS.GenerateCommitMessage">
+          <value>
+            <AIAssistantStoredInstruction>
+              <option name="actionId" value="AIAssistant.VCS.GenerateCommitMessage" />
+              <option name="content" value="Commit message guide&#10;Commit messages&#10;&#10;Clear commit messages make pull requests easier to review, and release notes easier to generate. The Blockly project uses conventional commits to help with this.&#10;&#10;Each commit should have the format:&#10;&#10;&lt;type&gt;: &lt;description&gt;&#10;&#10;[optional body]&#10;&#10;[optional footer(s)]&#10;&#10;Note that the core Blockly repo has a commit linter to help enforce this. If your pull request has multiple commits, the linter will check the title. If it has a single commit, it will check that commit. It is best if both your individual commits and the pull request title follow these guidelines.&#10;Type&#10;&#10;The type must be non-empty, and all lower case. The following is a list of accepted types.&#10;&#10;chore&#10;    For commits that complete routine/automated tasks such as upgrading dependencies.&#10;deprecate&#10;    For commits that deprecate functionality.&#10;feat&#10;    For commits that add new functionality to Blockly.&#10;fix&#10;    For commits that fix bugs/errors in Blockly.&#10;release&#10;    For commits that relate to the release of a new version.&#10;&#10;Breaking changes&#10;&#10;Commits that make breaking changes should append a ! after the type of the commit. Breaking changes are changes that may break developers using Blockly in their apps, causing them to have to do extra work.&#10;&#10;For example: none fix!: return type of workspace.paste&#10;&#10;Breaking changes could have any of the above valid types.&#10;Description&#10;&#10;The description must be non-empty, and must be under 256 characters.&#10;Body&#10;&#10;The body is optional. If it is provided there should be a blank line between it and the description. It must be broken into lines of no more than 256 characters.&#10;&#10;Note that usually, it is advisable to put this kind of information in your pull request description, in addition to/rather than directly in the commit.&#10;Footer&#10;&#10;The footer is optional. If it is provided there should be a blank line between it and the body. It must be broken into lines of no more than 256 characters.&#10;Fixing non-conventional commits&#10;&#10;If you did not use conventional commits when making your modifications, there are two options for fixing the messages depending on how many commits you have:&#10;&#10;    If your pull request has multiple commits, edit the pull request title to conform to the requirements. When the pull request is merged, your other commits will be squashed so that the title becomes the commit message.&#10;&#10;    If your pull request has a single commit, amend your commit message using git commit --amend, then force push your changes to your fork of Blockly. This will automatically updated any open pull requests associated with this branch. git push --force origin my-branch.&#10;" />
+            </AIAssistantStoredInstruction>
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
   <component name="AutoImportSettings">
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="041964c1-da3b-43da-9e6c-5bf4f34492c5" name="更改" comment="ft. added chatgpt agent instructions">
+    <list default="true" id="041964c1-da3b-43da-9e6c-5bf4f34492c5" name="更改" comment="ft. improved group copying functionality and introduced accessibility updates&#10;&#10;- Added keyboard accessibility for `.group-title` in `styles.css` and implemented click/keyboard events in `app.js`.&#10;- Refactored and modularized clipboard copying methods for better reusability.&#10;- Updated `.idea/workspace.xml` configurations with new task details and Git settings.">
+      <changelist_data name="JavaVirtualEnv" email="102778463+neilhuang007@users.noreply.github.com" automatic="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/public/app.js" beforeDir="false" afterPath="$PROJECT_DIR$/public/app.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/public/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/public/index.html" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/public/styles.css" beforeDir="false" afterPath="$PROJECT_DIR$/public/styles.css" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -15,8 +31,14 @@
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
   <component name="Git.Settings">
+    <option name="PREVIOUS_COMMIT_AUTHORS">
+      <list>
+        <option value="JavaVirtualEnv &lt;102778463+neilhuang007@users.noreply.github.com&gt;" />
+      </list>
+    </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
     <option name="RESET_MODE" value="HARD" />
+    <option name="SIGN_OFF_COMMIT" value="true" />
   </component>
   <component name="GitHubPullRequestSearchHistory">{
   &quot;lastFilter&quot;: {
@@ -41,23 +63,23 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
-    &quot;last_opened_file_path&quot;: &quot;C:/Users/neil_/WebstormProjects/AI card cutter/dist&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.language.and.region&quot;,
-    &quot;ts.external.directory.path&quot;: &quot;C:\\Users\\neil_\\WebstormProjects\\AI card cutter\\node_modules\\typescript\\lib&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "git-widget-placeholder": "master",
+    "last_opened_file_path": "C:/Users/neil_/WebstormProjects/AI card cutter/dist",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "settings.editor.selected.configurable": "ml.llm.AIAssistantPromptsLibrary",
+    "ts.external.directory.path": "C:\\Users\\neil_\\WebstormProjects\\AI card cutter\\node_modules\\typescript\\lib",
+    "vue.rearranger.settings.migration": "true"
   }
-}</component>
+}]]></component>
   <component name="QodanaReportsService">
     <option name="descriptions">
       <ReportDescription localRun="true" path="C:\Users\neil_\AppData\Local\Temp\qodana_output1\qodana.sarif.json" reportGuid="306e89d5-c036-4f74-ad7f-2494e5458ee9" reportId="AI card cutter/qodana/2025-09-22" />
@@ -128,17 +150,30 @@
       <option name="project" value="LOCAL" />
       <updated>1759092512775</updated>
     </task>
-    <option name="localTasksCounter" value="5" />
+    <task id="LOCAL-00005" summary="ft. improved group copying functionality and introduced accessibility updates&#10;&#10;- Added keyboard accessibility for `.group-title` in `styles.css` and implemented click/keyboard events in `app.js`.&#10;- Refactored and modularized clipboard copying methods for better reusability.&#10;- Updated `.idea/workspace.xml` configurations with new task details and Git settings.">
+      <option name="closed" value="true" />
+      <created>1759097797730</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1759097797730</updated>
+    </task>
+    <option name="localTasksCounter" value="6" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
   </component>
   <component name="VcsManagerConfiguration">
+    <option name="CHECK_CODE_CLEANUP_BEFORE_PROJECT_COMMIT" value="true" />
     <MESSAGE value="Refactor input hint behavior and add initial project configuration" />
     <MESSAGE value="Add initial extra section for tagline and button in minimal mode" />
     <MESSAGE value="Added readme.md" />
     <MESSAGE value="ft. added chatgpt agent instructions" />
-    <option name="LAST_COMMIT_MESSAGE" value="ft. added chatgpt agent instructions" />
+    <MESSAGE value="ft. improved group copying functionality and introduced accessibility updates&#10;&#10;- Added keyboard accessibility for `.group-title` in `styles.css` and implemented click/keyboard events in `app.js`.&#10;- Refactored and modularized clipboard copying methods for better reusability.&#10;- Updated `.idea/workspace.xml` configurations with new task details and Git settings." />
+    <option name="LAST_COMMIT_MESSAGE" value="ft. improved group copying functionality and introduced accessibility updates&#10;&#10;- Added keyboard accessibility for `.group-title` in `styles.css` and implemented click/keyboard events in `app.js`.&#10;- Refactored and modularized clipboard copying methods for better reusability.&#10;- Updated `.idea/workspace.xml` configurations with new task details and Git settings." />
+    <option name="OPTIMIZE_IMPORTS_BEFORE_PROJECT_COMMIT" value="true" />
+    <option name="REFORMAT_BEFORE_PROJECT_COMMIT" value="true" />
+    <option name="REARRANGE_BEFORE_PROJECT_COMMIT" value="true" />
   </component>
 </project>

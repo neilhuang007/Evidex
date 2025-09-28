@@ -7,7 +7,8 @@
     <link rel="stylesheet" href="styles.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Baskervville:ital,wght@0,400..700;1,400..700&display=swap"
+          rel="stylesheet">
     <!-- Pickr color picker -->
     <link href="https://cdn.jsdelivr.net/npm/@simonwep/pickr/dist/themes/nano.min.css" rel="stylesheet"/>
 </head>
@@ -36,15 +37,12 @@
                         <button class="secondary-button copy-button" id="copy-all-button"
                                 title="Copy formatted cards to clipboard">
                             <span class="button-text">Copy</span>
-                            <svg class="button-icon" fill="none" height="20" viewBox="0 0 24 24" width="20"
-                                 xmlns="http://www.w3.org/2000/svg">
-                                <rect height="11" rx="2" stroke="currentColor" stroke-linecap="round"
-                                      stroke-linejoin="round" stroke-width="1.8"
-                                      width="11" x="7.25" y="8.75"/>
-                                <path d="M5.5 15V5.5A2.5 2.5 0 0 1 8 3h8.5" stroke="currentColor" stroke-linecap="round"
-                                      stroke-linejoin="round" stroke-width="1.8"/>
-                                <path d="M10 12h5" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
-                                      stroke-width="1.8"/>
+                            <svg aria-label="Copy icon" class="button-icon" fill="none" height="20"
+                                 role="img" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
+                                 stroke-width="1.5" viewBox="0 0 24 24" width="20" xmlns="http://www.w3.org/2000/svg">
+                                <title>Copy</title>
+                                <path d="M8.5 3.5H19.5V14.5H8.5Z"/>
+                                <path d="M4.5 7.5H15.5V20.5H4.5Z"/>
                             </svg>
                         </button>
                         <button class="primary-button download-all" id="download-all-button">
@@ -128,8 +126,53 @@
         </div>
     </div>
 
+    <!-- Onboarding Tutorial -->
+    <div class="onboarding-overlay" id="onboarding-overlay">
+        <div class="onboarding-container">
+            <div class="onboarding-content" id="onboarding-content">
+                <!-- Step indicator -->
+                <div class="onboarding-progress">
+                    <span class="progress-text" id="progress-text">Step 1 of 8</span>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progress-fill"></div>
+                    </div>
+                </div>
+
+                <!-- Tutorial content -->
+                <div class="onboarding-step" id="step-content">
+                    <h2 class="onboarding-title">Welcome to Evidex! 🎉</h2>
+                    <p class="onboarding-description">
+                        Let's take a quick tour to help you extract and format research evidence from any webpage.
+                    </p>
+                </div>
+
+                <!-- Navigation buttons -->
+                <div class="onboarding-actions">
+                    <button class="onboarding-btn secondary" id="skip-btn">Skip Tutorial</button>
+                    <div class="nav-buttons">
+                        <button class="onboarding-btn secondary" id="prev-btn" style="display: none;">Previous</button>
+                        <button class="onboarding-btn primary" id="next-btn">Get Started</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Spotlight border for focused elements -->
+            <div class="spotlight-border" id="spotlight-border"></div>
+
+            <!-- Tooltip for contextual help -->
+            <div class="onboarding-tooltip" id="onboarding-tooltip">
+                <div class="tooltip-arrow"></div>
+                <div class="tooltip-content" id="tooltip-content"></div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/@simonwep/pickr/dist/pickr.min.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
+
+
+
+
 

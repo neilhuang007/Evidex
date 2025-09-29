@@ -2512,6 +2512,7 @@ class OnboardingTutorial {
                 exampleCardType: 'highlight',
                 showEditingPanel: true,
                 editingPanelOptions: {
+                    delay: 200,
                     cardSelector: '.onboarding-highlight-demo .group-card',
                     cardId: 'tutorial-sample-2',
                     focus: 'highlight',
@@ -2529,6 +2530,7 @@ class OnboardingTutorial {
                 exampleCardType: 'color',
                 showEditingPanel: true,
                 editingPanelOptions: {
+                    delay: 200,
                     cardSelector: '.onboarding-highlight-demo .group-card',
                     cardId: 'tutorial-sample-2',
                     focus: 'color-picker',
@@ -2616,7 +2618,7 @@ class OnboardingTutorial {
         this.contentEl.innerHTML = `
             <h2 class="onboarding-title">${step.title}</h2>
             <p class="onboarding-description">${step.description}</p>
-            ${step.showSampleCard ? this.getSampleCardHTML() : ''}
+            ${step.showSampleCard ? this.getSampleCardHTML(step.exampleCardType) : ''}
         `;
 
         // Update buttons
@@ -2644,31 +2646,48 @@ class OnboardingTutorial {
         }
 
         // Execute action if provided
-        if (step.action) {
+        if (typeof step.action === 'function') {
             setTimeout(() => step.action(), 500);
         }
 
-        // Show sample panel for certain steps
-        if (step.showSampleCard && !document.querySelector('.cuts-panel.show')) {
-            this.showSamplePanel();
+        // Ensure sample content is visible when needed
+        if (step.showSampleCard) {
+            this.showSamplePanel(step.forceSampleCard);
         }
 
-        // Show editing panel for highlighting steps
+        // Trigger editing panel demos when configured
         if (step.showEditingPanel) {
+            const panelDelay = step.editingPanelOptions?.delay ?? 800;
             setTimeout(() => {
-                this.showEditingPanelDemo();
-                // Apply highlighting effects after editing panel is shown
-                setTimeout(() => {
-                    const panel = document.querySelector('.onboarding-sample-card .card-editing-panel');
-                    if (panel) {
-                        this.applyEditingPanelHighlights(panel, 'tutorial-sample');
-                    }
-                }, 300);
-            }, 800);
+                this.showEditingPanelDemo(step.editingPanelOptions);
+            }, panelDelay);
         }
     }
 
-    getSampleCardHTML() {
+
+    getSampleCardHTML(type = 'default') {
+        if (type === 'highlight') {
+            return `
+                <div class="onboarding-example">
+                    <div class="example-label">Try a Highlight</div>
+                    <div class="example-content">
+                        Click into the demo card below, select <span style="background: rgba(94, 114, 228, 0.25); padding: 0 4px; border-radius: 4px;">Machine learning algorithms</span>, then press <strong>Highlight</strong> to see the change.
+                    </div>
+                </div>
+            `;
+        }
+
+        if (type === 'color') {
+            return `
+                <div class="onboarding-example">
+                    <div class="example-label">Pick a Color</div>
+                    <div class="example-content">
+                        Open the color picker in the editing panel and choose a shade—each evidence card remembers its highlight color so you can group insights visually.
+                    </div>
+                </div>
+            `;
+        }
+
         return `
             <div class="onboarding-example">
                 <div class="example-label">Sample Evidence Card</div>
@@ -2679,6 +2698,7 @@ class OnboardingTutorial {
             </div>
         `;
     }
+
 
     positionTutorialContent(highlightSelector) {
         const content = document.getElementById('onboarding-content');
@@ -2740,28 +2760,28 @@ class OnboardingTutorial {
         }
     }
 
-    showSamplePanel() {
+    showSamplePanel(forceDemo = false) {
         const cutsPanel = document.querySelector('.cuts-panel');
         if (!cutsPanel) return;
 
-        // Check if user already has evidence cards
+        const cutsList = document.getElementById('cuts-list');
+        if (!cutsList) return;
+
         const existingCards = cutsPanel.querySelectorAll('.card-group:not(.onboarding-sample-card)');
         const hasExistingEvidence = existingCards.length > 0;
+        const sampleCards = document.querySelectorAll('.onboarding-sample-card');
+        const hasSampleCards = sampleCards.length > 0;
 
-        // Only add samples if no real evidence exists and no samples exist
-        if (!hasExistingEvidence && !document.querySelector('.onboarding-sample-card')) {
-            const cutsList = document.getElementById('cuts-list');
+        const shouldInjectSamples = (!hasExistingEvidence && !hasSampleCards) || (forceDemo && !hasSampleCards);
 
-            // Clear only the empty state message, not real evidence
+        if (shouldInjectSamples) {
             const emptyMessage = cutsList.querySelector('.cuts-empty');
             if (emptyMessage) {
                 emptyMessage.remove();
             }
 
-            // Add first sample card
             const sampleCard1 = document.createElement('div');
             sampleCard1.className = 'card-group onboarding-sample-card';
-            sampleCard1.data = {id: 'tutorial-sample-1'};
             sampleCard1.innerHTML = `
                 <div class="group-header">
                     <h3 class="group-title" title="Click to copy this card">Sample Evidence Card</h3>
@@ -2777,10 +2797,8 @@ class OnboardingTutorial {
                 </div>
             `;
 
-            // Add second sample card for highlighting demo
             const sampleCard2 = document.createElement('div');
             sampleCard2.className = 'card-group onboarding-sample-card onboarding-highlight-demo';
-            sampleCard2.data = {id: 'tutorial-sample-2'};
             sampleCard2.innerHTML = `
                 <div class="group-header">
                     <h3 class="group-title" title="Click to copy this card">Interactive Highlighting Demo</h3>
@@ -2796,49 +2814,100 @@ class OnboardingTutorial {
                 </div>
             `;
 
-            cutsList.appendChild(sampleCard1);
-            cutsList.appendChild(sampleCard2);
+            cutsList.prepend(sampleCard1);
+            cutsList.prepend(sampleCard2);
+        } else if (forceDemo) {
+            const highlightDemo = cutsList.querySelector('.onboarding-highlight-demo');
+            const standardSample = cutsList.querySelector('.onboarding-sample-card:not(.onboarding-highlight-demo)');
+
+            if (highlightDemo) {
+                cutsList.prepend(highlightDemo);
+            }
+
+            if (standardSample) {
+                const reference = cutsList.querySelector('.onboarding-highlight-demo');
+                cutsList.insertBefore(standardSample, reference ? reference.nextElementSibling : cutsList.firstChild);
+            }
         }
 
-        // Show the cuts panel if it's not already visible
         if (cutsPanel.style.display !== 'block') {
             cutsPanel.style.display = 'block';
             setTimeout(() => cutsPanel.classList.add('show'), 100);
         }
     }
 
-    showEditingPanelDemo() {
-        const sampleCard = document.querySelector('.onboarding-sample-card .group-card');
-        if (!sampleCard || !window.editingPanel) return;
 
-        const cardId = 'tutorial-sample';
+    showEditingPanelDemo(options = {}) {
+        if (!window.editingPanel) return;
 
-        // Create and show editing panel
-        const panel = window.editingPanel.createEditingPanel(sampleCard, cardId);
-        if (panel) {
-            panel.classList.add('show');
+        const {
+            cardSelector = '.onboarding-sample-card .group-card',
+            cardId,
+            focus = null,
+            emphasizeContent = false,
+            autoSelectText = false
+        } = options || {};
 
-            // Make content editable immediately
-            const content = sampleCard.querySelector('.group-content');
-            if (content) {
-                content.setAttribute('contenteditable', 'true');
-                content.style.cursor = 'text';
+        const sampleCard = document.querySelector(cardSelector) || document.querySelector('.onboarding-sample-card .group-card');
+        if (!sampleCard) return;
+
+        const resolvedCardId = cardId || sampleCard.dataset.cardId || `tutorial-sample-${Date.now()}`;
+        sampleCard.dataset.cardId = resolvedCardId;
+
+        const content = sampleCard.querySelector('.group-content');
+
+        this.clearEditingPanelAnimations();
+
+        if (content) {
+            content.setAttribute('contenteditable', 'true');
+            content.style.cursor = 'text';
+
+            if (emphasizeContent) {
+                content.style.background = 'rgba(94, 114, 228, 0.05)';
+                content.style.border = '2px dashed rgba(94, 114, 228, 0.3)';
+                content.style.borderRadius = '6px';
+                content.style.padding = '8px';
+                content.style.animation = 'tutorialHighlight 2s ease-in-out infinite';
             }
 
-            // Clear any existing animations first
-            this.clearEditingPanelAnimations();
+            if (window.editingPanel.contentElements) {
+                window.editingPanel.contentElements.set(resolvedCardId, content);
+            }
 
-            // Wait for the panel to be fully rendered, then apply effects
-            setTimeout(() => {
-                // Initialize the color picker for this demo
-                if (window.editingPanel.initPickrForCard) {
-                    window.editingPanel.initPickrForCard(cardId);
-                }
-
-                this.applyEditingPanelHighlights(panel, cardId);
-            }, 200);
+            if (typeof window.editingPanel.setupContentEventListeners === 'function' && !content.dataset.onboardingListeners) {
+                window.editingPanel.setupContentEventListeners(content, resolvedCardId);
+                content.dataset.onboardingListeners = 'true';
+            }
         }
+
+        const panel = window.editingPanel.createEditingPanel(sampleCard, resolvedCardId);
+        if (!panel) return;
+
+        panel.classList.add('show');
+
+        setTimeout(() => {
+            if (typeof window.editingPanel.initPickrForCard === 'function') {
+                window.editingPanel.initPickrForCard(resolvedCardId);
+            }
+
+            this.applyEditingPanelHighlights(panel, focus);
+
+            if (autoSelectText && content) {
+                content.focus();
+                const range = document.createRange();
+                const textNode = content.firstChild;
+                if (textNode && textNode.textContent) {
+                    const selectionLength = Math.min(textNode.textContent.length, 34);
+                    range.setStart(textNode, 0);
+                    range.setEnd(textNode, selectionLength);
+                    const selection = window.getSelection();
+                    selection.removeAllRanges();
+                    selection.addRange(range);
+                }
+            }
+        }, 200);
     }
+
 
     clearEditingPanelAnimations() {
         // Clear any existing tutorial animations
@@ -2854,20 +2923,20 @@ class OnboardingTutorial {
         });
     }
 
-    applyEditingPanelHighlights(panel, cardId) {
-        const currentStep = this.steps[this.currentStep - 1];
+    applyEditingPanelHighlights(panel, focus) {
+        const targetFocus = focus || this.steps[this.currentStep - 1]?.editingPanelOptions?.focus;
 
-        if (currentStep?.highlight?.includes('highlight-toggle')) {
-            // Highlighting step - focus on highlight button
+        if (targetFocus === 'highlight') {
             const highlightBtn = panel.querySelector('.highlight-toggle');
             if (highlightBtn) {
                 highlightBtn.style.animation = 'tutorialHighlight 2s ease-in-out infinite';
-                highlightBtn.style.background = 'rgba(94, 114, 228, 0.15)';
-                highlightBtn.style.borderRadius = '6px';
-                highlightBtn.style.border = '2px solid rgba(94, 114, 228, 0.3)';
+                highlightBtn.style.background = 'rgba(94, 114, 228, 0.2)';
+                highlightBtn.style.border = '3px solid rgba(94, 114, 228, 0.5)';
+                highlightBtn.style.borderRadius = '8px';
+                highlightBtn.style.transform = 'scale(1.05)';
+                highlightBtn.style.fontWeight = 'bold';
             }
-        } else if (currentStep?.highlight?.includes('color-picker')) {
-            // Color picker step - focus on color picker
+        } else if (targetFocus === 'color-picker') {
             const colorPicker = panel.querySelector('.color-picker-container');
             if (colorPicker) {
                 colorPicker.style.animation = 'tutorialHighlight 2s ease-in-out infinite';
@@ -2878,68 +2947,17 @@ class OnboardingTutorial {
         }
     }
 
+
     showHighlightingDemo() {
-        // Focus on the highlighting demo card
-        const demoCard = document.querySelector('.onboarding-highlight-demo .group-card');
-        if (!demoCard || !window.editingPanel) return;
-
-        const cardId = 'tutorial-sample-2';
-
-        // Make the content clearly editable with visual emphasis
-        const content = demoCard.querySelector('.group-content');
-        if (content) {
-            content.setAttribute('contenteditable', 'true');
-            content.style.cursor = 'text';
-            content.style.background = 'rgba(94, 114, 228, 0.05)';
-            content.style.border = '2px dashed rgba(94, 114, 228, 0.3)';
-            content.style.borderRadius = '6px';
-            content.style.padding = '8px';
-
-            // Add pulsing animation to draw attention
-            content.style.animation = 'tutorialHighlight 2s ease-in-out infinite';
-        }
-
-        // Create and show editing panel
-        const panel = window.editingPanel.createEditingPanel(demoCard, cardId);
-        if (panel) {
-            panel.classList.add('show');
-
-            // Initialize color picker
-            setTimeout(() => {
-                if (window.editingPanel.initPickrForCard) {
-                    window.editingPanel.initPickrForCard(cardId);
-                }
-
-                // Highlight the highlight button with strong visual feedback
-                const highlightBtn = panel.querySelector('.highlight-toggle');
-                if (highlightBtn) {
-                    highlightBtn.style.animation = 'tutorialHighlight 2s ease-in-out infinite';
-                    highlightBtn.style.background = 'rgba(94, 114, 228, 0.2)';
-                    highlightBtn.style.border = '3px solid rgba(94, 114, 228, 0.5)';
-                    highlightBtn.style.borderRadius = '8px';
-                    highlightBtn.style.transform = 'scale(1.1)';
-                    highlightBtn.style.fontWeight = 'bold';
-                }
-
-                // Auto-select some text to show what should be highlighted
-                setTimeout(() => {
-                    if (content) {
-                        content.focus();
-                        const range = document.createRange();
-                        const textNode = content.firstChild;
-                        if (textNode && textNode.nodeType === Node.TEXT_NODE) {
-                            // Select "Machine learning algorithms"
-                            range.setStart(textNode, 0);
-                            range.setEnd(textNode, 27);
-                            const selection = window.getSelection();
-                            selection.removeAllRanges();
-                            selection.addRange(range);
-                        }
-                    }
-                }, 800);
-            }, 200);
-        }
+        this.showEditingPanelDemo({
+            cardSelector: '.onboarding-highlight-demo .group-card',
+            cardId: 'tutorial-sample-2',
+            focus: 'highlight',
+            emphasizeContent: true,
+            autoSelectText: true
+        });
     }
+
 
     highlightElement(selector) {
         const element = document.querySelector(selector);

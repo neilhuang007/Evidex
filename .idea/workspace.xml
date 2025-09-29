@@ -18,12 +18,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="041964c1-da3b-43da-9e6c-5bf4f34492c5" name="更改" comment="ft. improved group copying functionality and introduced accessibility updates&#10;&#10;- Added keyboard accessibility for `.group-title` in `styles.css` and implemented click/keyboard events in `app.js`.&#10;- Refactored and modularized clipboard copying methods for better reusability.&#10;- Updated `.idea/workspace.xml` configurations with new task details and Git settings.">
-      <changelist_data name="JavaVirtualEnv" email="102778463+neilhuang007@users.noreply.github.com" automatic="false" />
+    <list default="true" id="041964c1-da3b-43da-9e6c-5bf4f34492c5" name="更改" comment="feat: add onboarding tutorial and improve accessibility&#10;&#10;- Implemented an onboarding tutorial in `index.html` for new users, including step indicators, tooltips, and navigation controls.&#10;- Improved keyboard accessibility and updated copy icon SVG in `index.html`.&#10;- Introduced CSS variables for consistent spacing and border styles in `styles.css`.&#10;- Switched font to &quot;Baskervville&quot; for a refined appearance in `styles.css`.&#10;- Updated `.idea/workspace.xml` with new configurations and task details.">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/public/app.js" beforeDir="false" afterPath="$PROJECT_DIR$/public/app.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/public/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/public/index.html" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/public/styles.css" beforeDir="false" afterPath="$PROJECT_DIR$/public/styles.css" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -158,7 +155,15 @@
       <option name="project" value="LOCAL" />
       <updated>1759097797730</updated>
     </task>
-    <option name="localTasksCounter" value="6" />
+    <task id="LOCAL-00006" summary="feat: add onboarding tutorial and improve accessibility&#10;&#10;- Implemented an onboarding tutorial in `index.html` for new users, including step indicators, tooltips, and navigation controls.&#10;- Improved keyboard accessibility and updated copy icon SVG in `index.html`.&#10;- Introduced CSS variables for consistent spacing and border styles in `styles.css`.&#10;- Switched font to &quot;Baskervville&quot; for a refined appearance in `styles.css`.&#10;- Updated `.idea/workspace.xml` with new configurations and task details.">
+      <option name="closed" value="true" />
+      <created>1759101066502</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1759101066502</updated>
+    </task>
+    <option name="localTasksCounter" value="7" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -171,7 +176,8 @@
     <MESSAGE value="Added readme.md" />
     <MESSAGE value="ft. added chatgpt agent instructions" />
     <MESSAGE value="ft. improved group copying functionality and introduced accessibility updates&#10;&#10;- Added keyboard accessibility for `.group-title` in `styles.css` and implemented click/keyboard events in `app.js`.&#10;- Refactored and modularized clipboard copying methods for better reusability.&#10;- Updated `.idea/workspace.xml` configurations with new task details and Git settings." />
-    <option name="LAST_COMMIT_MESSAGE" value="ft. improved group copying functionality and introduced accessibility updates&#10;&#10;- Added keyboard accessibility for `.group-title` in `styles.css` and implemented click/keyboard events in `app.js`.&#10;- Refactored and modularized clipboard copying methods for better reusability.&#10;- Updated `.idea/workspace.xml` configurations with new task details and Git settings." />
+    <MESSAGE value="feat: add onboarding tutorial and improve accessibility&#10;&#10;- Implemented an onboarding tutorial in `index.html` for new users, including step indicators, tooltips, and navigation controls.&#10;- Improved keyboard accessibility and updated copy icon SVG in `index.html`.&#10;- Introduced CSS variables for consistent spacing and border styles in `styles.css`.&#10;- Switched font to &quot;Baskervville&quot; for a refined appearance in `styles.css`.&#10;- Updated `.idea/workspace.xml` with new configurations and task details." />
+    <option name="LAST_COMMIT_MESSAGE" value="feat: add onboarding tutorial and improve accessibility&#10;&#10;- Implemented an onboarding tutorial in `index.html` for new users, including step indicators, tooltips, and navigation controls.&#10;- Improved keyboard accessibility and updated copy icon SVG in `index.html`.&#10;- Introduced CSS variables for consistent spacing and border styles in `styles.css`.&#10;- Switched font to &quot;Baskervville&quot; for a refined appearance in `styles.css`.&#10;- Updated `.idea/workspace.xml` with new configurations and task details." />
     <option name="OPTIMIZE_IMPORTS_BEFORE_PROJECT_COMMIT" value="true" />
     <option name="REFORMAT_BEFORE_PROJECT_COMMIT" value="true" />
     <option name="REARRANGE_BEFORE_PROJECT_COMMIT" value="true" />

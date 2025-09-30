@@ -23,42 +23,6 @@ class EditingPanel {
         setTimeout(() => this.loadSavedColors(), 100);
     }
 
-    // ADD inside EditingPanel
-    liftMarkerOutOfHighlight(marker, side /* 'before' | 'after' */) {
-        // Move the marker out of any wrapping .highlight span so the insertion point is outside the highlight.
-        while (marker.parentElement && marker.parentElement.classList.contains('highlight')) {
-            const span = marker.parentElement;
-            if (side === 'before') {
-                span.parentNode.insertBefore(marker, span);
-            } else {
-                span.parentNode.insertBefore(marker, span.nextSibling);
-            }
-        }
-    }
-
-
-    safeInsertFragmentAtRange(range, fragment) {
-        // Record children before insertion (DocumentFragment empties on insert)
-        const insertedNodes = Array.from(fragment.childNodes);
-
-        // If the range is inside a text node, split it and insert at the boundary
-        const container = range.startContainer;
-        const offset = range.startOffset;
-
-        if (container.nodeType === Node.TEXT_NODE) {
-            const parent = container.parentNode;
-            const after = container.splitText(offset); // split text node at caret
-            parent.insertBefore(fragment, after);
-        } else {
-            const parent = container;
-            const refNode = parent.childNodes[offset] ?? null;
-            parent.insertBefore(fragment, refNode);
-        }
-
-        // Return the nodes that landed in the DOM so callers can restore the selection
-        return insertedNodes;
-    }
-
     setupGlobalListeners() {
         // Click outside to close all panels (but not when selecting text)
         document.addEventListener('click', (e) => {
@@ -186,9 +150,6 @@ class EditingPanel {
         const targetEl = document.querySelector(`#picker-${cardId}`);
         if (!targetEl) {
             console.warn(`Pickr target element #picker-${cardId} not found, retrying...`);
-            console.log('Available picker elements:', Array.from(document.querySelectorAll('[id^="picker-"]')).map(el => el.id));
-            console.log('Card element:', document.querySelector(`[data-card-id="${cardId}"]`));
-            console.log('Panel element:', document.querySelector(`[data-card-id="${cardId}"] .card-editing-panel`));
 
             // Retry after a short delay in case DOM is still updating
             setTimeout(() => {
@@ -200,7 +161,6 @@ class EditingPanel {
                     // Try to recreate the entire panel if the picker element is missing
                     const cardElement = document.querySelector(`[data-card-id="${cardId}"]`);
                     if (cardElement) {
-                        console.log('Attempting to recreate panel for missing picker');
                         const existingPanel = cardElement.querySelector('.card-editing-panel');
                         if (existingPanel) {
                             existingPanel.remove();
@@ -283,7 +243,6 @@ class EditingPanel {
                     this.updateHighlightColors(cardId, hexColor);
                     // Save color to card data for persistence
                     this.saveColorToCard(cardId, hexColor);
-                    console.log(`Updated color for card ${cardId}: ${hexColor}`);
                 }
                 pickr.hide();
             });
@@ -350,7 +309,6 @@ class EditingPanel {
 
         if (!panel) {
             // Only create panel if it doesn't exist
-            console.log('Creating fresh panel for card:', cardId);
             panel = this.createEditingPanel(cardElement, cardId);
 
             // Add event listeners only when creating new panel
@@ -366,12 +324,10 @@ class EditingPanel {
             this.activePanels.set(cardId, panel);
         } else {
             // Panel exists, just ensure it's visible and functional
-            console.log('Panel already exists for card:', cardId, 'ensuring visibility');
             panel.classList.add('show');
 
             // Verify Pickr instance is still functional
             if (!this.pickrInstances.has(cardId)) {
-                console.log('Recreating missing Pickr instance');
                 setTimeout(() => {
                     this.initPickrForCard(cardId);
                 }, 50);
@@ -697,7 +653,6 @@ class EditingPanel {
             }
         }
 
-        console.log('Found text nodes in range:', textNodes.length, textNodes.map(n => n.textContent));
         return textNodes;
     }
 
@@ -1801,7 +1756,6 @@ class CardCutterApp {
                     c.content = cleaned;
                     changed = true;
                     migrationApplied = true;
-                    console.log(`Fixed formatting in card: ${c.cite || 'Untitled'}`);
                 }
 
                 // Additional checks for legacy issues
@@ -1826,7 +1780,6 @@ class CardCutterApp {
         // Update migration version if any migrations were applied
         if (migrationApplied || migrationVersion < currentVersion) {
             this.setMigrationVersion(currentVersion);
-            console.log(`Migration completed. Updated ${this.cards.length} cards to version ${currentVersion}`);
         }
 
         if (changed) this.persistCards();
@@ -1974,7 +1927,6 @@ class CardCutterApp {
         fixed = fixed.replace(/([^<])<HL>/gi, '$1<HL>'); // Ensure proper spacing
         fixed = fixed.replace(/<\/HL>([^>\s])/gi, '</HL>$1'); // Ensure proper spacing
 
-        console.log('Legacy formatting fixes applied:', fixed !== content);
         return fixed;
     }
 
@@ -2035,11 +1987,9 @@ class CardCutterApp {
                     }
                 }
 
-                console.log(`Card "${card.cite}" using color: ${color} (saved: ${card.highlightColor}, id: ${card.id})`);
                 return {...card, highlightColor: color};
             });
 
-            console.log('Sending cards with colors to API:', cardsWithColors);
 
             const response = await fetch(`${API_BASE}/api/download-docx-bulk`, {
                 method: 'POST',
@@ -2093,7 +2043,6 @@ class CardCutterApp {
 
                         // Recreate Pickr instance if it was destroyed
                         if (!window.editingPanel.pickrInstances.has(cardId)) {
-                            console.log('Recreating Pickr instance for card:', cardId);
                             window.editingPanel.initPickrForCard(cardId);
                         }
                     }

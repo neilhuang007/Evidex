@@ -1258,6 +1258,11 @@ class CardCutterApp {
                 this.initialExtra.setAttribute('aria-hidden', 'false');
                 // Focus tagline shortly after expand
                 setTimeout(() => this.claimInput && this.claimInput.focus(), 180);
+
+                // Start onboarding tutorial if user hasn't seen it
+                if (window.onboarding) {
+                    window.onboarding.init();
+                }
             }
             if (this.inputCard) this.inputCard.classList.remove('center-single');
         } else {
@@ -2385,14 +2390,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize editing panel globally
     window.editingPanel = new EditingPanel();
 
-    // Initialize onboarding tutorial
-    const onboarding = new OnboardingTutorial();
-    onboarding.init();
+    // Initialize onboarding tutorial (but don't start it yet)
+    window.onboarding = new OnboardingTutorial();
 
     // Add utility to reset onboarding for testing (can be called from console)
     window.resetOnboarding = () => {
         localStorage.removeItem('evidex_onboarding_completed');
-        onboarding.start();
+        window.onboarding.start();
     };
 });
 

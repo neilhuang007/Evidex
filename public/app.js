@@ -1874,9 +1874,13 @@ class CardCutterApp {
         const closeTags = (cleaned.match(/<\/HL>/g) || []).length;
 
         if (openTags > closeTags) {
-            // Add missing closing tags
+            // Remove excess opening tags to prevent over-highlighting
+            // Safer than adding closing tags at the end which would highlight everything
             for (let i = 0; i < openTags - closeTags; i++) {
-                cleaned += '</HL>';
+                const lastOpenIndex = cleaned.lastIndexOf('<HL>');
+                if (lastOpenIndex !== -1) {
+                    cleaned = cleaned.substring(0, lastOpenIndex) + cleaned.substring(lastOpenIndex + 4);
+                }
             }
         } else if (closeTags > openTags) {
             // Remove extra closing tags from the end

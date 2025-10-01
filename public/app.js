@@ -1258,11 +1258,6 @@ class CardCutterApp {
                 this.initialExtra.setAttribute('aria-hidden', 'false');
                 // Focus tagline shortly after expand
                 setTimeout(() => this.claimInput && this.claimInput.focus(), 180);
-
-                // Start onboarding tutorial if user hasn't seen it
-                if (window.onboarding) {
-                    window.onboarding.init();
-                }
             }
             if (this.inputCard) this.inputCard.classList.remove('center-single');
         } else {
@@ -1592,6 +1587,14 @@ class CardCutterApp {
 
         // No blind/overlay; immediately perform the split and let elements animate
         performSplit();
+
+        // Start onboarding tutorial after layout transition if user hasn't seen it
+        if (window.onboarding) {
+            // Delay to allow animation to complete
+            setTimeout(() => {
+                window.onboarding.init();
+            }, animated ? 1200 : 100);
+        }
     }
     
     // Render the left panel groups, grouped by tagline

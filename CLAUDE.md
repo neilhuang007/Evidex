@@ -57,3 +57,4 @@ Required for API functionality:
 - **Prompts**: `config/prompts/card_cutter.json` - System prompt and few-shot examples for card generation
 - **TypeScript**: Compiles from `src/` to `dist/` with CommonJS output
 - **Vercel**: Routes configured in `vercel.json` for serverless deployment
+- use vercel dev to build

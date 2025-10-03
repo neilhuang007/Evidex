@@ -660,7 +660,10 @@ export class CardCutterApp {
                     const colorOpacity = 0.3; // Adjust opacity for readability
                     const rgbaColor = hexToRgba(selectedColor, colorOpacity);
 
-                    let highlighted = (c.content || '').replace(/<HL>/g, `<span class="highlight" style="background: linear-gradient(180deg, transparent 50%, ${rgbaColor} 50%)">`);
+                    // Balance HL tags before rendering to prevent over-highlighting
+                    const balancedContent = this.balanceHLTags(c.content || '');
+
+                    let highlighted = balancedContent.replace(/<HL>/g, `<span class="highlight" style="background: linear-gradient(180deg, transparent 50%, ${rgbaColor} 50%)">`);
                     highlighted = highlighted.replace(/<\/HL>/g, '</span>');
                     para.innerHTML = highlighted;
                     // Add click handler for editing
@@ -932,6 +935,117 @@ export class CardCutterApp {
         validated = validated.trim();
 
         return validated;
+    }
+
+    balanceHLTags(content) {
+        if (!content || typeof content !== 'string') return content;
+
+        // Count opening and closing tags
+        const openMatches = content.match(/<HL>/gi) || [];
+        const closeMatches = content.match(/<\/HL>/gi) || [];
+        const openCount = openMatches.length;
+        const closeCount = closeMatches.length;
+
+        // Already balanced
+        if (openCount === closeCount) return content;
+
+        // More opening than closing tags - need to add closing tags or remove opening ones
+        if (openCount > closeCount) {
+            // Strategy: Walk through and properly pair tags, removing unpaired opening tags
+            let result = content;
+            let depth = 0;
+            let lastOpenIndex = -1;
+            let indicesToRemove = [];
+
+            // Find positions of all tags
+            const tagPattern = /<\/?HL>/gi;
+            let match;
+            const positions = [];
+
+            while ((match = tagPattern.exec(content)) !== null) {
+                positions.push({
+                    index: match.index,
+                    isOpen: match[0].toUpperCase() === '<HL>',
+                    length: match[0].length
+                });
+            }
+
+            // Walk through and track unbalanced tags
+            for (const pos of positions) {
+                if (pos.isOpen) {
+                    depth++;
+                    if (depth > 1) {
+                        // Nested opening tag - mark for removal
+                        indicesToRemove.push(pos.index);
+                    }
+                    lastOpenIndex = pos.index;
+                } else {
+                    depth--;
+                    if (depth < 0) {
+                        // Closing without opening - this shouldn't happen with our cleanup
+                        depth = 0;
+                    }
+                }
+            }
+
+            // If there are still unclosed tags, mark the last ones for removal
+            if (depth > 0) {
+                // Find the last N opening tags and mark them for removal
+                const openingPositions = positions.filter(p => p.isOpen).map(p => p.index);
+                const toRemove = openingPositions.slice(-depth);
+                indicesToRemove.push(...toRemove);
+            }
+
+            // Remove tags in reverse order to maintain indices
+            indicesToRemove.sort((a, b) => b - a);
+            for (const idx of indicesToRemove) {
+                result = result.substring(0, idx) + result.substring(idx + 4); // 4 = length of "<HL>"
+            }
+
+            return result;
+        }
+
+        // More closing than opening tags - remove excess closing tags
+        if (closeCount > openCount) {
+            let result = content;
+            let depth = 0;
+            let indicesToRemove = [];
+
+            const tagPattern = /<\/?HL>/gi;
+            let match;
+            const positions = [];
+
+            while ((match = tagPattern.exec(content)) !== null) {
+                positions.push({
+                    index: match.index,
+                    isOpen: match[0].toUpperCase() === '<HL>',
+                    length: match[0].length
+                });
+            }
+
+            for (const pos of positions) {
+                if (pos.isOpen) {
+                    depth++;
+                } else {
+                    depth--;
+                    if (depth < 0) {
+                        // Extra closing tag - mark for removal
+                        indicesToRemove.push(pos.index);
+                        depth = 0;
+                    }
+                }
+            }
+
+            // Remove tags in reverse order
+            indicesToRemove.sort((a, b) => b - a);
+            for (const idx of indicesToRemove) {
+                result = result.substring(0, idx) + result.substring(idx + 5); // 5 = length of "</HL>"
+            }
+
+            return result;
+        }
+
+        return content;
     }
 
     async handleDownloadAll() {

@@ -817,25 +817,41 @@ export class EditingPanel {
         this.saveContentChanges(cardId, contentElement);
     }
 
-    // Convert DOM content to position-based data structure
+    // Convert DOM content to position-based data structure (preserving newlines)
     domToPositionData(contentElement) {
         const highlights = [];
         let plainText = '';
         let currentPos = 0;
+        const newlinePositions = []; // Track where newlines should be
 
-        const processNode = (node) => {
+        const isBlockElement = (node) => {
+            if (node.nodeType !== Node.ELEMENT_NODE) return false;
+            const tag = node.tagName;
+            return tag === 'P' || tag === 'DIV' || tag === 'BR' || tag === 'LI';
+        };
+
+        const processNode = (node, isFirstChild = false) => {
             if (node.nodeType === Node.TEXT_NODE) {
-                plainText += node.textContent;
-                currentPos += node.textContent.length;
+                const text = node.textContent || '';
+                plainText += text;
+                currentPos += text.length;
             } else if (node.nodeType === Node.ELEMENT_NODE) {
+                // Handle BR tags - insert newline
+                if (node.tagName === 'BR') {
+                    plainText += '\n';
+                    newlinePositions.push(currentPos);
+                    currentPos += 1;
+                    return;
+                }
+
                 if (node.classList && node.classList.contains('highlight')) {
                     // Mark start of highlight
                     const startPos = currentPos;
                     const color = node.style.background || 'linear-gradient(180deg, transparent 50%, rgba(0, 255, 0, 0.3) 50%)';
 
                     // Process children to get text
-                    for (let child of node.childNodes) {
-                        processNode(child);
+                    for (let i = 0; i < node.childNodes.length; i++) {
+                        processNode(node.childNodes[i], i === 0);
                     }
 
                     // Mark end of highlight
@@ -846,19 +862,26 @@ export class EditingPanel {
                     });
                 } else {
                     // Process children of non-highlight elements
-                    for (let child of node.childNodes) {
-                        processNode(child);
+                    for (let i = 0; i < node.childNodes.length; i++) {
+                        processNode(node.childNodes[i], i === 0);
+                    }
+
+                    // Add newline after block elements (except first child)
+                    if (isBlockElement(node) && !isFirstChild && plainText && !plainText.endsWith('\n')) {
+                        plainText += '\n';
+                        newlinePositions.push(currentPos);
+                        currentPos += 1;
                     }
                 }
             }
         };
 
         // Process all children
-        for (let child of contentElement.childNodes) {
-            processNode(child);
+        for (let i = 0; i < contentElement.childNodes.length; i++) {
+            processNode(contentElement.childNodes[i], i === 0);
         }
 
-        return {text: plainText, highlights};
+        return {text: plainText, highlights, newlinePositions};
     }
 
     // Get selection boundaries as absolute text positions
@@ -944,7 +967,7 @@ export class EditingPanel {
         return result;
     }
 
-    // Rebuild DOM from position-based data
+    // Rebuild DOM from position-based data (preserving newlines)
     rebuildDOMFromPositions(contentElement, positionData) {
         const {text, highlights} = positionData;
 
@@ -973,28 +996,71 @@ export class EditingPanel {
             }
         }
 
-        // Build DOM fragments
+        // Build DOM fragments with proper newline handling
         const fragments = [];
         let lastPos = 0;
+        let hlIndex = 0;
 
-        for (let hl of merged) {
-            // Validate bounds to prevent out-of-range errors
-            const start = Math.max(0, Math.min(hl.start, text.length));
-            const end = Math.max(start, Math.min(hl.end, text.length));
+        // Process text character by character to handle newlines
+        for (let i = 0; i < text.length; i++) {
+            const char = text[i];
 
-            // Skip invalid highlights
-            if (start >= end) continue;
+            if (char === '\n') {
+                // Finish current text/highlight segment
+                if (i > lastPos) {
+                    this.addTextSegment(fragments, text, lastPos, i, merged, hlIndex);
+                }
+
+                // Add BR element for newline
+                fragments.push(document.createElement('br'));
+                lastPos = i + 1;
+
+            }
+        }
+
+        // Add remaining text after last newline
+        if (lastPos < text.length) {
+            this.addTextSegment(fragments, text, lastPos, text.length, merged, hlIndex);
+        }
+
+        // If no fragments were created but we have text, add it as plain text
+        if (fragments.length === 0 && text) {
+            fragments.push(document.createTextNode(text));
+        }
+
+        // Clear and rebuild DOM with new structure
+        contentElement.innerHTML = '';
+        fragments.forEach(frag => contentElement.appendChild(frag));
+    }
+
+    // Helper to add text segment with proper highlighting
+    addTextSegment(fragments, text, start, end, highlights, startHlIndex) {
+        if (start >= end) return;
+
+        let currentPos = start;
+
+        // Find all highlights that overlap with this segment
+        for (let hl of highlights) {
+            // Skip highlights that end before this segment
+            if (hl.end <= start) continue;
+
+            // Stop if highlight starts after this segment
+            if (hl.start >= end) break;
+
+            // Calculate overlap
+            const hlStart = Math.max(hl.start, start);
+            const hlEnd = Math.min(hl.end, end);
 
             // Add text before highlight
-            if (start > lastPos) {
-                const beforeText = text.substring(lastPos, start);
+            if (hlStart > currentPos) {
+                const beforeText = text.substring(currentPos, hlStart);
                 if (beforeText) {
                     fragments.push(document.createTextNode(beforeText));
                 }
             }
 
             // Add highlighted text
-            const hlText = text.substring(start, end);
+            const hlText = text.substring(hlStart, hlEnd);
             if (hlText) {
                 const span = document.createElement('span');
                 span.className = 'highlight';
@@ -1003,26 +1069,16 @@ export class EditingPanel {
                 fragments.push(span);
             }
 
-            lastPos = end;
+            currentPos = hlEnd;
         }
 
-        // Add remaining text after last highlight
-        if (lastPos < text.length) {
-            const remainingText = text.substring(lastPos);
+        // Add remaining text after last highlight in this segment
+        if (currentPos < end) {
+            const remainingText = text.substring(currentPos, end);
             if (remainingText) {
                 fragments.push(document.createTextNode(remainingText));
             }
         }
-
-        // If no fragments were created but we have text, add it as plain text
-        // This handles the case where all highlights were removed
-        if (fragments.length === 0 && text) {
-            fragments.push(document.createTextNode(text));
-        }
-
-        // Clear and rebuild DOM with new structure
-        contentElement.innerHTML = '';
-        fragments.forEach(frag => contentElement.appendChild(frag));
     }
 
     // Restore selection by absolute text positions

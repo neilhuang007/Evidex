@@ -232,14 +232,29 @@ export class CardCutterApp {
                 this.renderCuts();
                 return;
             }
+            // Clean and balance content before storing to ensure consistency
+            const rawContent = data.content || '';
+            const cleanedContent = this.cleanupStoredHighlightTags(rawContent);
+
             const card = {
                 id: tempId,
                 tagline: claim,
                 link: url,
                 cite: data.cite || '',
-                content: data.content || '',
+                content: cleanedContent,
                 pending: false
             };
+
+            // Check if evaluation data was included in the response (parallel evaluation)
+            if (data.evaluation && typeof data.evaluation.score === 'number') {
+                card.evaluationScore = data.evaluation.score;
+                card.evaluationBreakdown = {
+                    credibility: data.evaluation.credibility,
+                    support: data.evaluation.support,
+                    contradictions: data.evaluation.contradictions
+                };
+            }
+
             this.currentData = card;
             const idx = this.cards.findIndex(c => c.id === tempId);
             if (idx >= 0) this.cards[idx] = card; else this.cards.push(card);
@@ -247,8 +262,10 @@ export class CardCutterApp {
             this.renderCuts();
             this.showToast('Card added to memory', 'success');
 
-            // Auto-evaluate the newly added card
-            this.autoEvaluateLatestCard();
+            // Auto-evaluate the newly added card only if evaluation wasn't included
+            if (!data.evaluation) {
+                this.autoEvaluateLatestCard();
+            }
         } catch (error) {
             console.error('Error cutting cards:', error);
             this.showToast('Failed to process the document. Please try again.', 'error');
@@ -660,11 +677,18 @@ export class CardCutterApp {
                     const colorOpacity = 0.3; // Adjust opacity for readability
                     const rgbaColor = hexToRgba(selectedColor, colorOpacity);
 
-                    // Balance HL tags before rendering to prevent over-highlighting
-                    const balancedContent = this.balanceHLTags(c.content || '');
+                    // Content should already be cleaned and balanced when stored
+                    // No need to apply balanceHLTags() at render time
+                    const content = c.content || '';
 
-                    let highlighted = balancedContent.replace(/<HL>/g, `<span class="highlight" style="background: linear-gradient(180deg, transparent 50%, ${rgbaColor} 50%)">`);
+                    // Convert <HL> tags to spans
+                    let highlighted = content.replace(/<HL>/g, `<span class="highlight" style="background: linear-gradient(180deg, transparent 50%, ${rgbaColor} 50%)">`);
                     highlighted = highlighted.replace(/<\/HL>/g, '</span>');
+
+                    // Convert literal newlines to <br> tags for proper rendering
+                    // Must escape HTML first, then convert newlines, then apply highlighting
+                    highlighted = highlighted.replace(/\n/g, '<br>');
+
                     para.innerHTML = highlighted;
                     // Add click handler for editing
                     para.addEventListener('click', (e) => {
@@ -709,7 +733,7 @@ export class CardCutterApp {
 
         // Check if we need to perform data migration
         const migrationVersion = this.getMigrationVersion();
-        const currentVersion = 2; // Increment this when adding new migrations
+        const currentVersion = 3; // Increment this when adding new migrations (v3: Fix consecutive opening tags)
 
         // Ensure each card has an id and clean up any malformed HL tags
         let changed = false;
@@ -779,6 +803,24 @@ export class CardCutterApp {
         }
     }
 
+    // Enhanced fix for malformed consecutive opening tags (e.g., <HL>text<HL>moretext</HL> -> <HL>text</HL><HL>moretext</HL>)
+    fixConsecutiveOpeningTags(content) {
+        if (!content || typeof content !== 'string') return content;
+
+        let fixed = content;
+
+        // Fix pattern: <HL>text<HL>moretext</HL> -> close first HL before second opens
+        // This regex finds <HL> followed by text, then another <HL>
+        const consecutivePattern = /<HL>([^<]*(?:<(?!\/?HL>)[^<]*)*)<HL>/gi;
+        let prevFixed;
+        do {
+            prevFixed = fixed;
+            fixed = fixed.replace(consecutivePattern, '<HL>$1</HL><HL>');
+        } while (fixed !== prevFixed);
+
+        return fixed;
+    }
+
     performDeepCleanup(content) {
         let cleaned = content;
 
@@ -815,6 +857,9 @@ export class CardCutterApp {
 
         // Step 0: Fix common legacy formatting issues
         cleaned = this.fixLegacyFormatting(cleaned);
+
+        // Step 0.5: Fix consecutive opening tags pattern (NEW - addresses malformed AI output)
+        cleaned = this.fixConsecutiveOpeningTags(cleaned);
 
         // Step 1: Remove nested HL tags by flattening them
         let prevCleaned;

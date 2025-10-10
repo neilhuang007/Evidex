@@ -18,9 +18,13 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="041964c1-da3b-43da-9e6c-5bf4f34492c5" name="更改" comment="feat: add onboarding tutorial and improve accessibility&#10;&#10;- Implemented an onboarding tutorial in `index.html` for new users, including step indicators, tooltips, and navigation controls.&#10;- Improved keyboard accessibility and updated copy icon SVG in `index.html`.&#10;- Introduced CSS variables for consistent spacing and border styles in `styles.css`.&#10;- Switched font to &quot;Baskervville&quot; for a refined appearance in `styles.css`.&#10;- Updated `.idea/workspace.xml` with new configurations and task details.">
+    <list default="true" id="041964c1-da3b-43da-9e6c-5bf4f34492c5" name="更改" comment="fix: balance `&lt;HL&gt;` tags to prevent rendering issues&#10;&#10;- Added `balanceHLTags` method to ensure `&lt;HL&gt;` tags are properly paired.&#10;- Prevents over-highlighting caused by unbalanced or nested tags.&#10;- Refactored the rendering logic in `CardCutterApp.js` to use the new method.">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/public/app.js" beforeDir="false" afterPath="$PROJECT_DIR$/public/app.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/api/cite.ts" beforeDir="false" afterPath="$PROJECT_DIR$/api/cite.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/config/prompts/card_cutter.json" beforeDir="false" afterPath="$PROJECT_DIR$/config/prompts/card_cutter.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/public/js/CardCutterApp.js" beforeDir="false" afterPath="$PROJECT_DIR$/public/js/CardCutterApp.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/public/js/EditingPanel.js" beforeDir="false" afterPath="$PROJECT_DIR$/public/js/EditingPanel.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tsconfig.json" beforeDir="false" afterPath="$PROJECT_DIR$/tsconfig.json" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -60,23 +64,23 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "master",
-    "last_opened_file_path": "C:/Users/neil_/WebstormProjects/AI card cutter/dist",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "settings.editor.selected.configurable": "ml.llm.AIAssistantPromptsLibrary",
-    "ts.external.directory.path": "C:\\Users\\neil_\\WebstormProjects\\AI card cutter\\node_modules\\typescript\\lib",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/neil_/WebstormProjects/AI card cutter/dist&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;ml.llm.AIAssistantPromptsLibrary&quot;,
+    &quot;ts.external.directory.path&quot;: &quot;D:\\projects\\evidex\\node_modules\\typescript\\lib&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
+}</component>
   <component name="QodanaReportsService">
     <option name="descriptions">
       <ReportDescription localRun="true" path="C:\Users\neil_\AppData\Local\Temp\qodana_output1\qodana.sarif.json" reportGuid="306e89d5-c036-4f74-ad7f-2494e5458ee9" reportId="AI card cutter/qodana/2025-09-22" />
@@ -91,7 +95,7 @@
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-js-predefined-d6986cc7102b-9c94529fcfe0-JavaScript-WS-252.26199.162" />
+        <option value="bundled-js-predefined-d6986cc7102b-3aa1da707db6-JavaScript-WS-252.26830.93" />
       </set>
     </attachedChunks>
   </component>
@@ -114,6 +118,14 @@
       <workItem from="1758576066669" duration="12333000" />
       <workItem from="1758630279397" duration="39000" />
       <workItem from="1758636849643" duration="491000" />
+      <workItem from="1759153069023" duration="3906000" />
+      <workItem from="1759255493312" duration="50000" />
+      <workItem from="1759349867308" duration="2256000" />
+      <workItem from="1759363452409" duration="598000" />
+      <workItem from="1759439276169" duration="10424000" />
+      <workItem from="1759873376289" duration="2549000" />
+      <workItem from="1759926787350" duration="12000" />
+      <workItem from="1760126074567" duration="357000" />
     </task>
     <task id="LOCAL-00001" summary="Refactor input hint behavior and add initial project configuration">
       <option name="closed" value="true" />
@@ -163,7 +175,47 @@
       <option name="project" value="LOCAL" />
       <updated>1759101066502</updated>
     </task>
-    <option name="localTasksCounter" value="7" />
+    <task id="LOCAL-00007" summary="chore: remove unused code and debug logs&#10;&#10;- Removed obsolete `liftMarkerOutOfHighlight` and `safeInsertFragmentAtRange` functions from `app.js`.&#10;- Deleted unnecessary `console.log` debug statements throughout `app.js`. &#10;- Improved code readability by cleaning up redundant comments and dead code.">
+      <option name="closed" value="true" />
+      <created>1759255547806</created>
+      <option name="number" value="00007" />
+      <option name="presentableId" value="LOCAL-00007" />
+      <option name="project" value="LOCAL" />
+      <updated>1759255547806</updated>
+    </task>
+    <task id="LOCAL-00008" summary="feat: delay onboarding tutorial start and enable reset utility&#10;&#10;- Modified onboarding tutorial logic to defer initialization until needed in `app.js`.&#10;- Added a global utility to reset onboarding progress for testing purposes via the browser console.">
+      <option name="closed" value="true" />
+      <created>1759350139162</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1759350139162</updated>
+    </task>
+    <task id="LOCAL-00009" summary="fix: defer onboarding tutorial init until after layout transition&#10;&#10;- Moved onboarding tutorial initialization to execute after layout animations complete in `app.js`.&#10;- Adjusted timing to enhance user experience by ensuring animations finish before tutorial starts.">
+      <option name="closed" value="true" />
+      <created>1759350984374</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1759350984374</updated>
+    </task>
+    <task id="LOCAL-00010" summary="chore: remove `public/app.js` as it is no longer used&#10;&#10;- Deleted `app.js` to clean up unused features and reduce project size. &#10;- Confirmed functionality is redundant or replaced in new implementations.">
+      <option name="closed" value="true" />
+      <created>1759453766928</created>
+      <option name="number" value="00010" />
+      <option name="presentableId" value="LOCAL-00010" />
+      <option name="project" value="LOCAL" />
+      <updated>1759453766928</updated>
+    </task>
+    <task id="LOCAL-00011" summary="fix: balance `&lt;HL&gt;` tags to prevent rendering issues&#10;&#10;- Added `balanceHLTags` method to ensure `&lt;HL&gt;` tags are properly paired.&#10;- Prevents over-highlighting caused by unbalanced or nested tags.&#10;- Refactored the rendering logic in `CardCutterApp.js` to use the new method.">
+      <option name="closed" value="true" />
+      <created>1759456720577</created>
+      <option name="number" value="00011" />
+      <option name="presentableId" value="LOCAL-00011" />
+      <option name="project" value="LOCAL" />
+      <updated>1759456720577</updated>
+    </task>
+    <option name="localTasksCounter" value="12" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -177,7 +229,14 @@
     <MESSAGE value="ft. added chatgpt agent instructions" />
     <MESSAGE value="ft. improved group copying functionality and introduced accessibility updates&#10;&#10;- Added keyboard accessibility for `.group-title` in `styles.css` and implemented click/keyboard events in `app.js`.&#10;- Refactored and modularized clipboard copying methods for better reusability.&#10;- Updated `.idea/workspace.xml` configurations with new task details and Git settings." />
     <MESSAGE value="feat: add onboarding tutorial and improve accessibility&#10;&#10;- Implemented an onboarding tutorial in `index.html` for new users, including step indicators, tooltips, and navigation controls.&#10;- Improved keyboard accessibility and updated copy icon SVG in `index.html`.&#10;- Introduced CSS variables for consistent spacing and border styles in `styles.css`.&#10;- Switched font to &quot;Baskervville&quot; for a refined appearance in `styles.css`.&#10;- Updated `.idea/workspace.xml` with new configurations and task details." />
-    <option name="LAST_COMMIT_MESSAGE" value="feat: add onboarding tutorial and improve accessibility&#10;&#10;- Implemented an onboarding tutorial in `index.html` for new users, including step indicators, tooltips, and navigation controls.&#10;- Improved keyboard accessibility and updated copy icon SVG in `index.html`.&#10;- Introduced CSS variables for consistent spacing and border styles in `styles.css`.&#10;- Switched font to &quot;Baskervville&quot; for a refined appearance in `styles.css`.&#10;- Updated `.idea/workspace.xml` with new configurations and task details." />
+    <MESSAGE value="更改" />
+    <MESSAGE value="chore: remove unused code and debug logs&#10;&#10;- Removed obsolete `liftMarkerOutOfHighlight` and `safeInsertFragmentAtRange` functions from `app.js`.&#10;- Deleted unnecessary `console.log` debug statements throughout `app.js`. &#10;- Improved code readability by cleaning up redundant comments and dead code." />
+    <MESSAGE value="feat: delay onboarding tutorial start and enable reset utility&#10;&#10;- Modified onboarding tutorial logic to defer initialization until needed in `app.js`.&#10;- Added a global utility to reset onboarding progress for testing purposes via the browser console." />
+    <MESSAGE value="fix: defer onboarding tutorial init until after layout transition&#10;&#10;- Moved onboarding tutorial initialization to execute after layout animations complete in `app.js`.&#10;- Adjusted timing to enhance user experience by ensuring animations finish before tutorial starts." />
+    <MESSAGE value="chore: remove unused editing panel implementation&#10;&#10;- Deleted the `EditingPanel` class and its related helpers from `app.js`.&#10;- Cleaned up color picker and text highlight management functions no longer in use." />
+    <MESSAGE value="chore: remove `public/app.js` as it is no longer used&#10;&#10;- Deleted `app.js` to clean up unused features and reduce project size. &#10;- Confirmed functionality is redundant or replaced in new implementations." />
+    <MESSAGE value="fix: balance `&lt;HL&gt;` tags to prevent rendering issues&#10;&#10;- Added `balanceHLTags` method to ensure `&lt;HL&gt;` tags are properly paired.&#10;- Prevents over-highlighting caused by unbalanced or nested tags.&#10;- Refactored the rendering logic in `CardCutterApp.js` to use the new method." />
+    <option name="LAST_COMMIT_MESSAGE" value="fix: balance `&lt;HL&gt;` tags to prevent rendering issues&#10;&#10;- Added `balanceHLTags` method to ensure `&lt;HL&gt;` tags are properly paired.&#10;- Prevents over-highlighting caused by unbalanced or nested tags.&#10;- Refactored the rendering logic in `CardCutterApp.js` to use the new method." />
     <option name="OPTIMIZE_IMPORTS_BEFORE_PROJECT_COMMIT" value="true" />
     <option name="REFORMAT_BEFORE_PROJECT_COMMIT" value="true" />
     <option name="REARRANGE_BEFORE_PROJECT_COMMIT" value="true" />

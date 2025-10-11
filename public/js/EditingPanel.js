@@ -684,82 +684,39 @@ export class EditingPanel {
         let out = '';
         let inHL = false;
 
-        const isBlock = (el) => {
-            if (el.nodeType !== Node.ELEMENT_NODE) return false;
-            const t = el.tagName;
-            return t === 'P' || t === 'DIV' || t === 'LI';
-        };
-
-        const addNewline = (depth) => {
-            // Close before newline so per-line rendering remains balanced
-            if (inHL) {
-                out += '</HL>\n';
-                // Re-open if we are still inside a highlighted ancestor after the newline
-                if (depth > 0) out += '<HL>';
-            } else {
-                out += '\n';
-            }
-        };
-
-        const walk = (node, hlDepth) => {
+        const walk = (node) => {
             if (node.nodeType === Node.TEXT_NODE) {
                 const text = node.nodeValue || '';
-                if (!text) return;
-
-                if (hlDepth > 0 && !inHL) {
-                    out += '<HL>';
-                    inHL = true;
-                }
-                if (hlDepth === 0 && inHL) {
-                    out += '</HL>';
-                    inHL = false;
-                }
-
-                out += text;
+                if (text) out += text;
                 return;
             }
 
             if (node.nodeType === Node.ELEMENT_NODE) {
-                const el = node;
-                const tag = el.tagName;
+                const isHighlight = node.classList && node.classList.contains('highlight');
 
-                if (tag === 'BR') {
-                    addNewline(hlDepth);
-                    return;
+                if (isHighlight && !inHL) {
+                    out += '<HL>';
+                    inHL = true;
                 }
-
-                const adds = (el.classList && el.classList.contains('highlight')) ? 1 : 0;
-                const newDepth = hlDepth + adds;
 
                 // Walk children
-                for (let child = el.firstChild; child; child = child.nextSibling) {
-                    walk(child, newDepth);
+                for (let child of node.childNodes) {
+                    walk(child);
                 }
 
-                // If this element started a highlight, close it on exit
-                if (adds && inHL && hlDepth === 0) {
+                if (isHighlight && inHL) {
                     out += '</HL>';
                     inHL = false;
-                }
-
-                // Add a newline after block elements
-                if (isBlock(el)) {
-                    addNewline(newDepth);
                 }
             }
         };
 
-        // Walk the actual DOM (read-only)
-        walk(contentElement, 0);
+        walk(contentElement);
 
-        // Close any open <HL> at the very end
+        // Close any unclosed HL tag
         if (inHL) out += '</HL>';
 
-        // Normalize line breaks (no triple+)
-        out = out.replace(/\r\n?/g, '\n');
-        out = out.replace(/\n{3,}/g, '\n\n');
-
-        // Collapse adjacent/empty HL just in case
+        // Clean up adjacent tags
         out = out.replace(/<\/HL>\s*<HL>/g, '');
         out = out.replace(/<HL>\s*<\/HL>/g, '');
 
@@ -817,41 +774,26 @@ export class EditingPanel {
         this.saveContentChanges(cardId, contentElement);
     }
 
-    // Convert DOM content to position-based data structure (preserving newlines)
+    // Convert DOM content to position-based data structure (no newline handling)
     domToPositionData(contentElement) {
         const highlights = [];
         let plainText = '';
         let currentPos = 0;
-        const newlinePositions = []; // Track where newlines should be
 
-        const isBlockElement = (node) => {
-            if (node.nodeType !== Node.ELEMENT_NODE) return false;
-            const tag = node.tagName;
-            return tag === 'P' || tag === 'DIV' || tag === 'BR' || tag === 'LI';
-        };
-
-        const processNode = (node, isFirstChild = false) => {
+        const processNode = (node) => {
             if (node.nodeType === Node.TEXT_NODE) {
                 const text = node.textContent || '';
                 plainText += text;
                 currentPos += text.length;
             } else if (node.nodeType === Node.ELEMENT_NODE) {
-                // Handle BR tags - insert newline
-                if (node.tagName === 'BR') {
-                    plainText += '\n';
-                    newlinePositions.push(currentPos);
-                    currentPos += 1;
-                    return;
-                }
-
                 if (node.classList && node.classList.contains('highlight')) {
                     // Mark start of highlight
                     const startPos = currentPos;
                     const color = node.style.background || 'linear-gradient(180deg, transparent 50%, rgba(0, 255, 0, 0.3) 50%)';
 
                     // Process children to get text
-                    for (let i = 0; i < node.childNodes.length; i++) {
-                        processNode(node.childNodes[i], i === 0);
+                    for (let child of node.childNodes) {
+                        processNode(child);
                     }
 
                     // Mark end of highlight
@@ -862,26 +804,19 @@ export class EditingPanel {
                     });
                 } else {
                     // Process children of non-highlight elements
-                    for (let i = 0; i < node.childNodes.length; i++) {
-                        processNode(node.childNodes[i], i === 0);
-                    }
-
-                    // Add newline after block elements (except first child)
-                    if (isBlockElement(node) && !isFirstChild && plainText && !plainText.endsWith('\n')) {
-                        plainText += '\n';
-                        newlinePositions.push(currentPos);
-                        currentPos += 1;
+                    for (let child of node.childNodes) {
+                        processNode(child);
                     }
                 }
             }
         };
 
         // Process all children
-        for (let i = 0; i < contentElement.childNodes.length; i++) {
-            processNode(contentElement.childNodes[i], i === 0);
+        for (let child of contentElement.childNodes) {
+            processNode(child);
         }
 
-        return {text: plainText, highlights, newlinePositions};
+        return {text: plainText, highlights};
     }
 
     // Get selection boundaries as absolute text positions
@@ -967,7 +902,7 @@ export class EditingPanel {
         return result;
     }
 
-    // Rebuild DOM from position-based data (preserving newlines)
+    // Rebuild DOM from position-based data (no newline handling - single line)
     rebuildDOMFromPositions(contentElement, positionData) {
         const {text, highlights} = positionData;
 
@@ -977,10 +912,8 @@ export class EditingPanel {
             return;
         }
 
-        // Sort highlights by start position
+        // Sort and merge highlights
         const sortedHighlights = [...highlights].sort((a, b) => a.start - b.start);
-
-        // Merge overlapping highlights with same color
         const merged = [];
         for (let hl of sortedHighlights) {
             if (merged.length === 0) {
@@ -988,7 +921,6 @@ export class EditingPanel {
             } else {
                 const last = merged[merged.length - 1];
                 if (last.end >= hl.start && last.color === hl.color) {
-                    // Merge overlapping/adjacent
                     last.end = Math.max(last.end, hl.end);
                 } else {
                     merged.push({...hl});
@@ -996,41 +928,34 @@ export class EditingPanel {
             }
         }
 
-        // Build DOM fragments with proper newline handling
+        // Build DOM fragments
         const fragments = [];
-        let lastPos = 0;
-        let hlIndex = 0;
+        let pos = 0;
 
-        // Process text character by character to handle newlines
-        for (let i = 0; i < text.length; i++) {
-            const char = text[i];
-
-            if (char === '\n') {
-                // Finish current text/highlight segment
-                if (i > lastPos) {
-                    this.addTextSegment(fragments, text, lastPos, i, merged, hlIndex);
-                }
-
-                // Add BR element for newline
-                fragments.push(document.createElement('br'));
-                lastPos = i + 1;
-
+        for (const hl of merged) {
+            // Add text before highlight
+            if (hl.start > pos) {
+                fragments.push(document.createTextNode(text.substring(pos, hl.start)));
             }
+
+            // Add highlighted text
+            const span = document.createElement('span');
+            span.className = 'highlight';
+            span.style.background = hl.color;
+            span.textContent = text.substring(hl.start, hl.end);
+            fragments.push(span);
+
+            pos = hl.end;
         }
 
-        // Add remaining text after last newline
-        if (lastPos < text.length) {
-            this.addTextSegment(fragments, text, lastPos, text.length, merged, hlIndex);
+        // Add remaining text
+        if (pos < text.length) {
+            fragments.push(document.createTextNode(text.substring(pos)));
         }
 
-        // If no fragments were created but we have text, add it as plain text
-        if (fragments.length === 0 && text) {
-            fragments.push(document.createTextNode(text));
-        }
-
-        // Clear and rebuild DOM with new structure
+        // Clear and rebuild DOM
         contentElement.innerHTML = '';
-        fragments.forEach(frag => contentElement.appendChild(frag));
+        fragments.forEach(f => contentElement.appendChild(f));
     }
 
     // Helper to add text segment with proper highlighting

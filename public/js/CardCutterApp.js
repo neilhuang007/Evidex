@@ -233,8 +233,10 @@ export class CardCutterApp {
                 return;
             }
             // Clean and balance content before storing to ensure consistency
+            // Strip ALL newlines - content should be single line with <HL> tags only
             const rawContent = data.content || '';
-            const cleanedContent = this.cleanupStoredHighlightTags(rawContent);
+            const contentNoNewlines = rawContent.replace(/\r?\n/g, ' ');
+            const cleanedContent = this.cleanupStoredHighlightTags(contentNoNewlines);
 
             const card = {
                 id: tempId,
@@ -685,10 +687,6 @@ export class CardCutterApp {
                     let highlighted = content.replace(/<HL>/g, `<span class="highlight" style="background: linear-gradient(180deg, transparent 50%, ${rgbaColor} 50%)">`);
                     highlighted = highlighted.replace(/<\/HL>/g, '</span>');
 
-                    // Convert literal newlines to <br> tags for proper rendering
-                    // Must escape HTML first, then convert newlines, then apply highlighting
-                    highlighted = highlighted.replace(/\n/g, '<br>');
-
                     para.innerHTML = highlighted;
                     // Add click handler for editing
                     para.addEventListener('click', (e) => {
@@ -733,56 +731,60 @@ export class CardCutterApp {
 
         // Check if we need to perform data migration
         const migrationVersion = this.getMigrationVersion();
-        const currentVersion = 3; // Increment this when adding new migrations (v3: Fix consecutive opening tags)
+        const currentVersion = 4; // v4: Simplified highlighting with no newlines
 
-        // Ensure each card has an id and clean up any malformed HL tags
         let changed = false;
-        let migrationApplied = false;
 
-        for (const c of this.cards) {
-            if (!c.id) {
-                c.id = `c_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-                changed = true;
-            }
+        // Only run cleanup if migration is needed
+        if (migrationVersion < currentVersion) {
+            console.log(`Migrating cards from version ${migrationVersion} to ${currentVersion}`);
 
-            // Always clean up HL tags if migration version is outdated
-            if (c.content && typeof c.content === 'string') {
-                const originalContent = c.content;
-                const cleaned = this.cleanupStoredHighlightTags(c.content);
-
-                if (cleaned !== originalContent) {
-                    c.content = cleaned;
+            for (const c of this.cards) {
+                // Ensure ID exists
+                if (!c.id) {
+                    c.id = `c_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
                     changed = true;
-                    migrationApplied = true;
                 }
 
-                // Additional checks for legacy issues
-                if (migrationVersion < currentVersion) {
-                    // Perform comprehensive legacy cleanup
-                    const deepCleaned = this.performDeepCleanup(c.content);
-                    if (deepCleaned !== c.content) {
-                        c.content = deepCleaned;
+                // Clean up content only during migration
+                if (c.content && typeof c.content === 'string') {
+                    // Strip newlines and clean up tags
+                    const contentNoNewlines = c.content.replace(/\r?\n/g, ' ');
+                    const cleaned = this.cleanupStoredHighlightTags(contentNoNewlines);
+
+                    if (cleaned !== c.content) {
+                        c.content = cleaned;
                         changed = true;
-                        migrationApplied = true;
                     }
                 }
+
+                // Ensure highlight color exists
+                if (!c.highlightColor) {
+                    c.highlightColor = '#00FF00';
+                    changed = true;
+                }
             }
 
-            // Ensure highlight color is properly stored
-            if (!c.highlightColor) {
-                c.highlightColor = '#00FF00'; // Default color
-                changed = true;
-            }
-        }
-
-        // Update migration version if any migrations were applied
-        if (migrationApplied || migrationVersion < currentVersion) {
+            // Update migration version
             this.setMigrationVersion(currentVersion);
+            console.log(`Migration complete`);
+        } else {
+            // No migration needed, just ensure IDs and colors exist
+            for (const c of this.cards) {
+                if (!c.id) {
+                    c.id = `c_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+                    changed = true;
+                }
+                if (!c.highlightColor) {
+                    c.highlightColor = '#00FF00';
+                    changed = true;
+                }
+            }
         }
 
         if (changed) this.persistCards();
         if (this.cards.length > 0) {
-            // If returning user with existing cards, show split layout without the enter animation
+            // If returning user with existing cards, show split layout without animation
             this.switchToSplitLayout(false);
         }
     }
@@ -852,61 +854,51 @@ export class CardCutterApp {
     }
 
     cleanupStoredHighlightTags(content) {
-        // Comprehensive cleanup for all previous formatting issues
+        // Conservative cleanup - only fix obviously broken tags
         let cleaned = content;
 
-        // Step 0: Fix common legacy formatting issues
-        cleaned = this.fixLegacyFormatting(cleaned);
+        // Normalize tag format to uppercase
+        cleaned = cleaned.replace(/<\/?hl>/gi, m => m.toUpperCase());
+        cleaned = cleaned.replace(/<HL[^>]*>/gi, '<HL>');
+        cleaned = cleaned.replace(/<\/HL[^>]*>/gi, '</HL>');
 
-        // Step 0.5: Fix consecutive opening tags pattern (NEW - addresses malformed AI output)
-        cleaned = this.fixConsecutiveOpeningTags(cleaned);
-
-        // Step 1: Remove nested HL tags by flattening them
-        let prevCleaned;
+        // Remove nested tags: <HL>text<HL>more</HL>text</HL> → <HL>textmoretext</HL>
+        let prev;
         do {
-            prevCleaned = cleaned;
-            // Remove nested opening HL tags: <HL>text<HL>moretext</HL>text</HL> -> <HL>textmoretexttext</HL>
-            cleaned = cleaned.replace(/<HL>([^<]*(?:<(?!\/?HL>)[^<]*)*)<HL>([^<]*(?:<(?!\/?HL>)[^<]*)*)<\/HL>([^<]*(?:<(?!\/?HL>)[^<]*)*)<\/HL>/gi, '<HL>$1$2$3</HL>');
-            // Handle simpler nested cases
+            prev = cleaned;
             cleaned = cleaned.replace(/<HL>([^<]*)<HL>/gi, '<HL>$1');
             cleaned = cleaned.replace(/<\/HL>([^<]*)<\/HL>/gi, '$1</HL>');
-            // Handle triple+ nesting
-            cleaned = cleaned.replace(/<HL>([^<]*(?:<(?!\/?HL>)[^<]*)*)<HL>([^<]*(?:<(?!\/?HL>)[^<]*)*)<HL>/gi, '<HL>$1$2');
-        } while (cleaned !== prevCleaned);
+        } while (cleaned !== prev);
 
-        // Step 2: Merge adjacent HL tags
+        // Merge adjacent tags
         cleaned = cleaned.replace(/<\/HL>\s*<HL>/gi, '');
 
-        // Step 3: Remove empty HL tags
+        // Remove empty tags
         cleaned = cleaned.replace(/<HL>\s*<\/HL>/gi, '');
 
-        // Step 4: Ensure all HL tags are properly balanced
-        const openTags = (cleaned.match(/<HL>/g) || []).length;
-        const closeTags = (cleaned.match(/<\/HL>/g) || []).length;
+        // Balance tags - ensure equal open/close counts
+        const openCount = (cleaned.match(/<HL>/g) || []).length;
+        const closeCount = (cleaned.match(/<\/HL>/g) || []).length;
 
-        if (openTags > closeTags) {
-            // Remove excess opening tags to prevent over-highlighting
-            // Safer than adding closing tags at the end which would highlight everything
-            for (let i = 0; i < openTags - closeTags; i++) {
-                const lastOpenIndex = cleaned.lastIndexOf('<HL>');
-                if (lastOpenIndex !== -1) {
-                    cleaned = cleaned.substring(0, lastOpenIndex) + cleaned.substring(lastOpenIndex + 4);
+        if (openCount > closeCount) {
+            // Remove excess opening tags from end
+            for (let i = 0; i < openCount - closeCount; i++) {
+                const idx = cleaned.lastIndexOf('<HL>');
+                if (idx !== -1) {
+                    cleaned = cleaned.substring(0, idx) + cleaned.substring(idx + 4);
                 }
             }
-        } else if (closeTags > openTags) {
-            // Remove extra closing tags from the end
-            for (let i = 0; i < closeTags - openTags; i++) {
-                const lastCloseIndex = cleaned.lastIndexOf('</HL>');
-                if (lastCloseIndex !== -1) {
-                    cleaned = cleaned.substring(0, lastCloseIndex) + cleaned.substring(lastCloseIndex + 5);
+        } else if (closeCount > openCount) {
+            // Remove excess closing tags from end
+            for (let i = 0; i < closeCount - openCount; i++) {
+                const idx = cleaned.lastIndexOf('</HL>');
+                if (idx !== -1) {
+                    cleaned = cleaned.substring(0, idx) + cleaned.substring(idx + 5);
                 }
             }
         }
 
-        // Step 5: Final validation and cleanup
-        cleaned = this.finalValidation(cleaned);
-
-        return cleaned;
+        return cleaned.trim();
     }
 
     fixLegacyFormatting(content) {
@@ -956,27 +948,16 @@ export class CardCutterApp {
     finalValidation(content) {
         let validated = content;
 
-        // Ensure no HL tags are inside words (split words properly)
-        validated = validated.replace(/(\w)<HL>/gi, '$1 <HL>');
-        validated = validated.replace(/<\/HL>(\w)/gi, '</HL> $1');
+        // Collapse multiple spaces (but not newlines - though we shouldn't have any)
+        validated = validated.replace(/ +/g, ' ');
 
-        // Fix multiple spaces that might have been introduced
-        validated = validated.replace(/\s+/g, ' ');
+        // Remove empty HL tags
+        validated = validated.replace(/<HL>\s*<\/HL>/gi, '');
 
-        // Ensure HL tags don't contain only whitespace
-        validated = validated.replace(/<HL>\s+<\/HL>/gi, '');
+        // Remove any HTML tags except HL
+        validated = validated.replace(/<\/?(?!HL\b)[^>]*>/gi, '');
 
-        // Remove any remaining malformed HTML that might interfere
-        validated = validated.replace(/<\/?(?!HL\b)[^>]*>/gi, ''); // Remove any HTML tags except HL
-
-        // Normalize line breaks and spacing
-        validated = validated.replace(/\r\n/g, '\n');
-        validated = validated.replace(/\r/g, '\n');
-
-        // Remove excessive line breaks
-        validated = validated.replace(/\n{3,}/g, '\n\n');
-
-        // Trim excessive whitespace at start and end
+        // Trim whitespace at start and end
         validated = validated.trim();
 
         return validated;

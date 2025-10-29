@@ -66,90 +66,27 @@ evidex/
 
 ## API Documentation
 
-<details>
-<summary><b>POST /api/cite</b> - Extract evidence from webpage</summary>
+For complete API documentation including request/response formats, examples, and workflows, see **[API.md](API.md)**.
 
-Fetches a webpage and extracts evidence supporting a specific tagline.
+### Quick Overview
 
-**Request Body:**
-```json
-{
-  "url": "https://example.com/article",
-  "tagline": "Climate change impacts are accelerating"
-}
-```
+| Endpoint                  | Method | Description                                               |
+|---------------------------|--------|-----------------------------------------------------------|
+| `/api/cite`               | POST   | Extract evidence from webpage with credibility evaluation |
+| `/api/download-docx`      | POST   | Generate single debate card Word document                 |
+| `/api/download-docx-bulk` | POST   | Generate multi-card Word document                         |
+| `/api/health`             | GET    | Health check endpoint                                     |
 
-**Response:**
-```json
-{
-  "evidence": "Extracted quote with <HL>highlighted text</HL>",
-  "citation": "Author, Date, Publication",
-  "link": "https://example.com/article"
-}
-```
-</details>
+### Key Features
 
-<details>
-<summary><b>POST /api/download-docx</b> - Generate single card document</summary>
+- **AI-Powered Evidence Extraction** - Automatically identifies relevant quotes from sources
+- **Credibility Evaluation** - Assesses source quality and evidence strength
+- **Highlight Preservation** - Maintains `<HL>` tag formatting in exports
+- **Custom Styling** - Configurable highlight colors per card
+- **Vercel Compatible** - Works seamlessly with serverless deployments
+- **Self-Hosting Support** - Can be deployed on any Node.js server
 
-Creates a Word document containing a single debate card.
-
-**Request Body:**
-```json
-{
-  "card": {
-    "tagline": "Your tagline here",
-    "citation": "Author, Date",
-    "evidence": "Evidence text with <HL>highlights</HL>",
-    "link": "https://source.url"
-  }
-}
-```
-
-**Response:** Binary .docx file
-</details>
-
-<details>
-<summary><b>POST /api/download-docx-bulk</b> - Generate multi-card document</summary>
-
-Creates a Word document containing multiple debate cards.
-
-**Request Body:**
-```json
-{
-  "cards": [
-    {
-      "tagline": "First tagline",
-      "citation": "Author1, Date1",
-      "evidence": "First evidence",
-      "link": "https://source1.url"
-    },
-    {
-      "tagline": "Second tagline",
-      "citation": "Author2, Date2",
-      "evidence": "Second evidence",
-      "link": "https://source2.url"
-    }
-  ]
-}
-```
-
-**Response:** Binary .docx file
-</details>
-
-<details>
-<summary><b>GET /api/health</b> - Health check</summary>
-
-Verifies the API is operational.
-
-**Response:**
-```json
-{
-  "status": "ok",
-  "timestamp": "2025-01-15T12:00:00Z"
-}
-```
-</details>
+**Full documentation:** [API.md](API.md)
 
 ## Development
 

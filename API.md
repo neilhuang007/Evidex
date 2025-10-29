@@ -383,6 +383,64 @@ curl https://your-deployment.vercel.app/api/health
 
 ---
 
+## Systematic Batch Processing
+
+Yes! Programs can systematically cite multiple sources and generate Word documents using only API calls. This enables
+automated research workflows.
+
+### Workflow Overview
+
+```
+1. Define sources → 2. Call /api/cite for each → 3. Collect results → 4. Call /api/download-docx-bulk → 5. Get .docx file
+```
+
+**See complete examples:**
+
+- JavaScript/Node.js: [`examples/batch-citation-example.js`](examples/batch-citation-example.js)
+- Python: [`examples/batch-citation-example.py`](examples/batch-citation-example.py)
+
+### Key Benefits
+
+- **Parallel Processing:** Cite multiple sources concurrently
+- **Quality Filtering:** Use evaluation scores to filter evidence
+- **Custom Organization:** Apply different highlight colors per card
+- **Single Document:** Export all cards to one .docx file
+- **Fully Automated:** No manual copying or formatting required
+
+### Quick Example
+
+```javascript
+// 1. Cite multiple sources in parallel
+const sources = [
+  { tagline: 'AI improves productivity', url: 'https://example.com/ai' },
+  { tagline: 'Remote work increases satisfaction', url: 'https://example.com/remote' }
+];
+
+const cards = await Promise.all(
+  sources.map(async ({ tagline, url }) => {
+    const res = await fetch(`${API_BASE}/api/cite`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tagline, link: url })
+    });
+    const data = await res.json();
+    return { tagline, link: url, cite: data.cite, content: data.content };
+  })
+);
+
+// 2. Generate single document with all cards
+const docRes = await fetch(`${API_BASE}/api/download-docx-bulk`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ cards })
+});
+
+const blob = await docRes.blob();
+// Save the .docx file
+```
+
+---
+
 ## Complete Workflow Example
 
 Here's a complete example of extracting evidence and generating a Word document:

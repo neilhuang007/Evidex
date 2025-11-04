@@ -4,6 +4,7 @@ import path from 'path';
 import {promises as fs} from 'fs';
 import {convertContentParts, generateWithRetry} from './ai/gemini-wrapper';
 import {parseTagged, renderDocxBuffer} from './exporters/wordHandler';
+import {renderPdfBuffer} from './exporters/pdfHandler';
 
 // Vercel provides env vars via process.env; prefer GEMINI_API_KEY
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
@@ -161,6 +162,26 @@ ${content}
     console.error('Error generating bulk document:', error);
     res.status(500).json({ error: 'Failed to generate document' });
   }
+});
+
+// Bulk download PDF: accept multiple cards and compile into one .pdf
+app.post('/api/download-pdf-bulk', async (req, res) => {
+    try {
+        const {cards} = req.body || {};
+        if (!Array.isArray(cards) || cards.length === 0) {
+            return res.status(400).json({error: 'cards[] required'});
+        }
+
+        const buffer = await renderPdfBuffer(cards);
+
+        const fileName = `cards_${Date.now()}.pdf`;
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+        res.send(buffer);
+    } catch (error) {
+        console.error('Error generating PDF document:', error);
+        res.status(500).json({error: 'Failed to generate PDF document'});
+    }
 });
 
 app.get('/api/health', (req, res) => {

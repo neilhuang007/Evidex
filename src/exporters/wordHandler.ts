@@ -140,33 +140,35 @@ function renderParagraphs(nodes: RenderNode[], defaultHighlightColor?: string): 
         }
 
     if (mode === "tagline") {
+        const taglineSize = ptToHalfPoints(SIZES.taglinePt);
       return r.kind === "hl"
         ? new TextRun({
             text: r.text,
               bold: true,
-            size: ptToHalfPoints(SIZES.highlightPt),
+              size: taglineSize,
               shading: {type: ShadingType.CLEAR, fill: hlColor, color: "auto"},
             font: FONT,
           })
         : new TextRun({
             text: r.text,
             bold: true,
-            size: ptToHalfPoints(SIZES.taglinePt),
+              size: taglineSize,
             font: FONT,
           });
     }
     // mode === 'text'
+        const bodySize = ptToHalfPoints(SIZES.textPt);
     return r.kind === "hl"
       ? new TextRun({
           text: r.text,
             bold: true,
-          size: ptToHalfPoints(SIZES.highlightPt),
+            size: bodySize,
             shading: {type: ShadingType.CLEAR, fill: hlColor, color: "auto"},
           font: FONT,
         })
       : new TextRun({
           text: r.text,
-          size: ptToHalfPoints(SIZES.textPt),
+            size: bodySize,
           font: FONT,
         });
   };

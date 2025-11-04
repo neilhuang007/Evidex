@@ -88,6 +88,195 @@ For complete API documentation including request/response formats, examples, and
 
 **Full documentation:** [API.md](API.md)
 
+## External Service Integration
+
+Yes! External services and applications can call the Evidex API at **`https://ev1dex.com`** to programmatically extract
+evidence and generate documents.
+
+### Example: Python Script
+
+```python
+import requests
+
+API_BASE = "https://ev1dex.com"
+
+# Extract evidence from a source
+response = requests.post(
+    f"{API_BASE}/api/cite",
+    json={
+        "tagline": "Renewable energy costs have decreased significantly",
+        "link": "https://www.iea.org/reports/renewable-power",
+        "includeEvaluation": True
+    },
+    timeout=60
+)
+
+data = response.json()
+
+if data["status"] == "success":
+    print(f"Citation: {data['cite']}")
+    print(f"Quality Score: {data['evaluation']['score']}/10")
+    print(f"Content: {data['content'][:200]}...")
+
+    # Generate Word document
+    doc_response = requests.post(
+        f"{API_BASE}/api/download-docx",
+        json={
+            "tagline": "Renewable energy costs have decreased significantly",
+            "link": "https://www.iea.org/reports/renewable-power",
+            "cite": data["cite"],
+            "content": data["content"],
+            "highlightColor": "#FFFF00"
+        }
+    )
+
+    # Save the document
+    with open("evidence_card.docx", "wb") as f:
+        f.write(doc_response.content)
+
+    print("✓ Document saved as evidence_card.docx")
+```
+
+### Example: JavaScript/Node.js
+
+```javascript
+const fetch = require('node-fetch');
+const fs = require('fs').promises;
+
+const API_BASE = 'https://ev1dex.com';
+
+async function extractEvidence() {
+    // Extract evidence
+    const response = await fetch(`${API_BASE}/api/cite`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            tagline: 'AI improves medical diagnosis accuracy',
+            link: 'https://www.nature.com/articles/ai-diagnostics',
+            includeEvaluation: true
+        })
+    });
+
+    const data = await response.json();
+
+    if (data.status === 'success') {
+        console.log(`Citation: ${data.cite}`);
+        console.log(`Quality Score: ${data.evaluation.score}/10`);
+
+        // Generate Word document
+        const docResponse = await fetch(`${API_BASE}/api/download-docx`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                tagline: 'AI improves medical diagnosis accuracy',
+                link: 'https://www.nature.com/articles/ai-diagnostics',
+                cite: data.cite,
+                content: data.content,
+                highlightColor: '#00FFFF'
+            })
+        });
+
+        const buffer = await docResponse.buffer();
+        await fs.writeFile('evidence_card.docx', buffer);
+
+        console.log('✓ Document saved as evidence_card.docx');
+    }
+}
+
+extractEvidence();
+```
+
+### Example: cURL
+
+```bash
+# Extract evidence
+curl -X POST https://ev1dex.com/api/cite \
+  -H "Content-Type: application/json" \
+  -d '{
+    "tagline": "Climate change impacts are accelerating",
+    "link": "https://www.ipcc.ch/report/ar6/wg1/",
+    "includeEvaluation": true
+  }' \
+  | jq '.'
+
+# Download Word document
+curl -X POST https://ev1dex.com/api/download-docx \
+  -H "Content-Type: application/json" \
+  -d '{
+    "tagline": "Climate change impacts are accelerating",
+    "link": "https://www.ipcc.ch/report/ar6/wg1/",
+    "cite": "IPCC, 2021 (AR6 Climate Change Report)",
+    "content": "Global surface temperature has increased by <HL>1.1°C since pre-industrial times</HL>.",
+    "highlightColor": "#FFFF00"
+  }' \
+  --output evidence_card.docx
+```
+
+### Batch Processing Example
+
+Process multiple sources and generate a single document:
+
+```python
+import requests
+
+API_BASE = "https://ev1dex.com"
+
+sources = [
+    {"tagline": "AI improves productivity", "url": "https://example.com/ai-study"},
+    {"tagline": "Remote work increases satisfaction", "url": "https://example.com/remote"},
+    {"tagline": "Clean energy creates jobs", "url": "https://example.com/energy"}
+]
+
+# Step 1: Extract evidence from all sources
+cards = []
+for source in sources:
+    response = requests.post(
+        f"{API_BASE}/api/cite",
+        json={"tagline": source["tagline"], "link": source["url"]},
+        timeout=60
+    )
+    data = response.json()
+
+    if data["status"] == "success":
+        cards.append({
+            "tagline": source["tagline"],
+            "link": source["url"],
+            "cite": data["cite"],
+            "content": data["content"]
+        })
+
+# Step 2: Generate single document with all cards
+doc_response = requests.post(
+    f"{API_BASE}/api/download-docx-bulk",
+    json={"cards": cards}
+)
+
+with open("all_evidence.docx", "wb") as f:
+    f.write(doc_response.content)
+
+print(f"✓ Generated document with {len(cards)} cards")
+```
+
+### Use Cases for External Integration
+
+- **Research Automation Tools** - Integrate into existing research workflows
+- **Browser Extensions** - Create Chrome/Firefox extensions that use Evidex
+- **Slack/Discord Bots** - Build bots that fetch evidence on command
+- **CI/CD Pipelines** - Automate evidence gathering in build processes
+- **Custom Dashboards** - Embed evidence extraction in research platforms
+- **Mobile Apps** - Call the API from iOS/Android applications
+- **Zapier/IFTTT** - Create automation workflows with no-code tools
+
+### API Access
+
+- **Base URL:** `https://ev1dex.com`
+- **Authentication:** None required (server-side API key handled internally)
+- **Rate Limits:** Reasonable use expected; contact for high-volume usage
+- **Response Time:** Evidence extraction typically takes 5-15 seconds
+- **CORS:** Enabled for web browser requests
+
+**Complete API documentation:** [API.md](API.md)
+
 ## Development
 
 ### Build Commands

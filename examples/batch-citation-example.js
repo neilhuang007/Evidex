@@ -8,7 +8,7 @@
 const fetch = require('node-fetch');
 const fs = require('fs').promises;
 
-const API_BASE = 'https://your-deployment.vercel.app'; // Change to your deployment URL
+const API_BASE = 'https://ev1dex.com'; // Production API
 
 /**
  * Cite a single source and return the card data

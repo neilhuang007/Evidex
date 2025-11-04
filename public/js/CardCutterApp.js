@@ -37,7 +37,10 @@ export class CardCutterApp {
         new DynamicOrbs();
 
         this.cutButton.addEventListener('click', () => this.handleCutCards());
-        this.downloadAllButton.addEventListener('click', () => this.handleDownloadAll());
+
+        // Setup dropdown functionality
+        this.setupDownloadDropdown();
+
         if (this.copyAllButton) this.copyAllButton.addEventListener('click', () => this.handleCopyAll());
 
         this.urlInput.addEventListener('input', () => {
@@ -182,7 +185,8 @@ export class CardCutterApp {
         }
 
         const url = this.urlInput.value.trim();
-        const claim = this.claimInput.value.trim();
+        // Remove commas from tagline to prevent issues with custom ordering
+        const claim = this.claimInput.value.trim().replace(/,/g, '');
 
         // Add a pending spinner card in the left pane
         const tempId = `c_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -465,9 +469,19 @@ export class CardCutterApp {
             groups.get(key).push(c);
         }
 
-        for (const [tagline, list] of groups.entries()) {
+        // Convert to array to detect last item
+        const groupsArray = Array.from(groups.entries());
+
+        groupsArray.forEach(([tagline, list], groupIndex) => {
+            const isLastGroup = groupIndex === groupsArray.length - 1;
+
             const groupEl = document.createElement('div');
             groupEl.className = 'card-group';
+            if (isLastGroup) {
+                groupEl.classList.add('is-last-card');
+            }
+            groupEl.setAttribute('draggable', 'true');
+            groupEl.dataset.tagline = tagline;
 
             const header = document.createElement('div');
             header.className = 'group-header';
@@ -708,10 +722,104 @@ export class CardCutterApp {
                 body.appendChild(item);
             });
 
+            // Add drag event listeners
+            this.addDragListeners(groupEl, tagline);
+
             groupEl.appendChild(header);
             groupEl.appendChild(body);
+
+            // Only add "Show More" button to the last card group
+            if (isLastGroup) {
+                const showMoreBtn = document.createElement('button');
+                showMoreBtn.className = 'group-show-more';
+                showMoreBtn.innerHTML = `
+                    <span class="show-more-text">Show More</span>
+                    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                `;
+                showMoreBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    groupEl.classList.toggle('expanded');
+                    const isExpanded = groupEl.classList.contains('expanded');
+                    showMoreBtn.querySelector('.show-more-text').textContent = isExpanded ? 'Show Less' : 'Show More';
+                });
+                groupEl.appendChild(showMoreBtn);
+            }
+
             target.appendChild(groupEl);
-        }
+        });
+    }
+
+    addDragListeners(element, tagline) {
+        let draggedElement = null;
+
+        element.addEventListener('dragstart', (e) => {
+            draggedElement = element;
+            element.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/html', element.innerHTML);
+            e.dataTransfer.setData('text/plain', tagline);
+        });
+
+        element.addEventListener('dragend', (e) => {
+            element.classList.remove('dragging');
+            document.querySelectorAll('.card-group').forEach(el => {
+                el.classList.remove('drag-over');
+            });
+        });
+
+        element.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+
+            const dragging = document.querySelector('.dragging');
+            if (dragging && dragging !== element) {
+                element.classList.add('drag-over');
+            }
+        });
+
+        element.addEventListener('dragleave', (e) => {
+            if (e.target === element) {
+                element.classList.remove('drag-over');
+            }
+        });
+
+        element.addEventListener('drop', (e) => {
+            e.preventDefault();
+            element.classList.remove('drag-over');
+
+            const dragging = document.querySelector('.dragging');
+            if (dragging && dragging !== element) {
+                // Get the taglines
+                const draggedTagline = dragging.dataset.tagline;
+                const targetTagline = element.dataset.tagline;
+
+                // Reorder the cards
+                this.reorderCardsByTagline(draggedTagline, targetTagline);
+            }
+        });
+    }
+
+    reorderCardsByTagline(draggedTagline, targetTagline) {
+        // Find all cards with these taglines
+        const draggedCards = this.cards.filter(c => (c.tagline || '(untitled)') === draggedTagline);
+        const targetIndex = this.cards.findIndex(c => (c.tagline || '(untitled)') === targetTagline);
+
+        if (draggedCards.length === 0 || targetIndex === -1) return;
+
+        // Remove dragged cards from their current positions
+        this.cards = this.cards.filter(c => (c.tagline || '(untitled)') !== draggedTagline);
+
+        // Find the new target index after removal
+        const newTargetIndex = this.cards.findIndex(c => (c.tagline || '(untitled)') === targetTagline);
+
+        // Insert dragged cards before the target
+        this.cards.splice(newTargetIndex, 0, ...draggedCards);
+
+        // Persist and re-render
+        this.persistCards();
+        this.renderCuts();
     }
 
     persistCards() {
@@ -1074,27 +1182,489 @@ export class CardCutterApp {
         return content;
     }
 
-    async handleDownloadAll() {
+    setupDownloadDropdown() {
+        const downloadButton = document.getElementById('download-all-button');
+        const dropdown = document.getElementById('download-dropdown');
+        const dropdownWrapper = document.querySelector('.dropdown-wrapper');
+        const dropdownItems = dropdown?.querySelectorAll('.dropdown-item:not(#custom-order-btn)');
+        const customOrderBtn = document.getElementById('custom-order-btn');
+
+        if (!downloadButton || !dropdown) return;
+
+        // Handle dropdown item clicks (DOCX and PDF)
+        dropdownItems?.forEach(item => {
+            item.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const format = item.dataset.format;
+
+                if (format === 'docx') {
+                    await this.handleDownloadAll('docx');
+                } else if (format === 'pdf') {
+                    await this.handleDownloadAll('pdf');
+                }
+            });
+        });
+
+        // Handle custom order button
+        if (customOrderBtn) {
+            customOrderBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.openCustomOrderModal();
+            });
+        }
+
+        // Setup custom order modal
+        this.setupCustomOrderModal();
+    }
+
+    setupCustomOrderModal() {
+        const modal = document.getElementById('custom-order-modal');
+        const closeBtn = document.getElementById('close-modal');
+        const cancelBtn = document.getElementById('cancel-order-btn');
+        const downloadBtn = document.getElementById('download-order-btn');
+        const restartTutorialBtn = document.getElementById('restart-tutorial-btn');
+        const taglineInput = document.getElementById('tagline-order-input');
+        const validationOverlay = document.getElementById('validation-overlay');
+        const taglinesList = document.getElementById('available-taglines-list');
+        const formatButtons = document.querySelectorAll('.format-btn');
+        const inputWrapper = taglineInput ? taglineInput.closest('.input-wrapper') : null;
+
+        if (!modal) return;
+
+        let selectedFormat = 'docx';
+        let availableTaglines = [];
+
+        const setTypingState = (isActive) => {
+            if (!inputWrapper) return;
+            if (isActive) {
+                inputWrapper.classList.add('is-typing');
+            } else {
+                inputWrapper.classList.remove('is-typing');
+            }
+        };
+
+        const syncOverlayMetrics = () => {
+            if (!taglineInput || !validationOverlay) return;
+            const computed = window.getComputedStyle(taglineInput);
+            validationOverlay.style.fontSize = computed.fontSize;
+            validationOverlay.style.lineHeight = computed.lineHeight;
+            validationOverlay.style.fontFamily = computed.fontFamily;
+            validationOverlay.style.fontWeight = computed.fontWeight;
+            validationOverlay.style.letterSpacing = computed.letterSpacing;
+            validationOverlay.style.padding = computed.padding;
+            validationOverlay.style.borderRadius = computed.borderRadius;
+        };
+
+        const syncOverlayScroll = () => {
+            if (!taglineInput || !validationOverlay) return;
+            validationOverlay.scrollTop = taglineInput.scrollTop;
+            validationOverlay.scrollLeft = taglineInput.scrollLeft;
+        };
+
+        // Close modal handlers
+        const closeModal = () => {
+            modal.classList.remove('show');
+            setTypingState(false);
+            // Reset tutorial on close
+            if (window.customOrderTutorial) {
+                window.customOrderTutorial.reset();
+            }
+        };
+
+        closeBtn?.addEventListener('click', closeModal);
+        cancelBtn?.addEventListener('click', closeModal);
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeModal();
+        });
+
+        // Restart tutorial button
+        if (restartTutorialBtn) {
+            restartTutorialBtn.addEventListener('click', () => {
+                if (window.customOrderTutorial) {
+                    window.customOrderTutorial.restart();
+                }
+            });
+        }
+
+        // Format button selection
+        formatButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                formatButtons.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                selectedFormat = btn.dataset.format;
+            });
+        });
+
+        // Helper to escape HTML
+        const escapeHtml = (str) => {
+            return (str ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        };
+
+        const formatSegment = (str) => {
+            return escapeHtml(str).replace(/\r?\n/g, '<br />');
+        };
+
+        const wrapLastCharacter = (segment) => {
+            if (!segment) {
+                return '<span class="tagline-last-char tagline-last-char--empty">&nbsp;</span>';
+            }
+
+            if (segment.length === 1) {
+                return `<span class="tagline-last-char">${formatSegment(segment)}</span>`;
+            }
+
+            const head = segment.slice(0, -1);
+            const tail = segment.slice(-1);
+            return `${formatSegment(head)}<span class="tagline-last-char">${formatSegment(tail) || '&nbsp;'}</span>`;
+        };
+
+        // Real-time validation function
+        const validateInput = () => {
+            if (!taglineInput) return;
+            const text = taglineInput.value;
+            const textEndsWithComma = text.endsWith(',');
+
+            if (!text) {
+                if (validationOverlay) validationOverlay.innerHTML = '';
+                taglineInput.classList.remove('has-validation');
+                inputWrapper?.classList.remove('has-validation');
+                return;
+            }
+
+            if (!validationOverlay) {
+                inputWrapper?.classList.remove('has-validation');
+                taglineInput.classList.remove('has-validation');
+                return;
+            }
+
+            // Split by commas
+            const parts = text.split(',');
+            const validatedParts = parts.map((part, index) => {
+                const trimmed = part.trim();
+                const isLast = index === parts.length - 1;
+
+                // If it's the last part and text doesn't end with comma, user is still typing
+                if (isLast && !textEndsWithComma) {
+                    // Highlight last character with custom caret indicator
+                    return `<span class="tagline-typing">${wrapLastCharacter(part)}</span>`;
+                }
+
+                // For completed taglines (before last comma or if text ends with comma)
+                // Check if tagline exists in available taglines (case-insensitive)
+                const isValid = trimmed === '' || availableTaglines.some(
+                    t => t.toLowerCase() === trimmed.toLowerCase()
+                );
+
+                const className = isValid ? 'tagline-valid' : 'tagline-invalid';
+                return `<span class="${className}">${formatSegment(part)}</span>`;
+            });
+
+            validationOverlay.innerHTML = validatedParts.join(',');
+
+            // Add class to show validation colors
+            taglineInput.classList.add('has-validation');
+            inputWrapper?.classList.add('has-validation');
+        };
+
+        const handleInputEvent = () => {
+            validateInput();
+            if (validationOverlay) {
+                requestAnimationFrame(() => {
+                    syncOverlayScroll();
+                });
+            }
+        };
+
+        // Add input listener for real-time validation
+        if (taglineInput) {
+            taglineInput.addEventListener('input', handleInputEvent);
+            taglineInput.addEventListener('scroll', syncOverlayScroll);
+            taglineInput.addEventListener('focus', () => {
+                setTypingState(true);
+                syncOverlayMetrics();
+                requestAnimationFrame(() => {
+                    syncOverlayScroll();
+                });
+            });
+            taglineInput.addEventListener('blur', () => {
+                setTypingState(false);
+            });
+        }
+
+        if (validationOverlay) {
+            window.addEventListener('resize', syncOverlayMetrics);
+        }
+
+        // Tagline chip click to add to textarea
+        if (taglinesList) {
+            taglinesList.addEventListener('click', (e) => {
+                const chip = e.target.closest('.tagline-chip');
+                if (chip) {
+                    const tagline = chip.textContent;
+                    const current = taglineInput.value;
+                    taglineInput.value = current ? `${current}, ${tagline}` : tagline;
+                    handleInputEvent();
+                }
+            });
+        }
+
+        // Download with custom order
+        downloadBtn?.addEventListener('click', async () => {
+            const orderInput = taglineInput.value.trim();
+            if (!orderInput) {
+                this.showToast('Please enter tagline order', 'error');
+                return;
+            }
+
+            const taglines = orderInput.split(',').map(t => t.trim()).filter(t => t);
+            if (taglines.length === 0) {
+                this.showToast('Please enter valid taglines', 'error');
+                return;
+            }
+
+            closeModal();
+            await this.handleDownloadCustomOrder(taglines, selectedFormat);
+        });
+
+        // Store validation function reference
+        this.validateCustomOrderInput = validateInput;
+        this.setAvailableTaglines = (taglines) => {
+            availableTaglines = taglines;
+        };
+        this.syncCustomOrderOverlayMetrics = syncOverlayMetrics;
+        this.syncCustomOrderOverlayScroll = () => requestAnimationFrame(() => syncOverlayScroll());
+        this.resetCustomOrderTypingState = () => setTypingState(false);
+    }
+
+    openCustomOrderModal() {
+        const modal = document.getElementById('custom-order-modal');
+        const taglineInput = document.getElementById('tagline-order-input');
+        const validationOverlay = document.getElementById('validation-overlay');
+        const taglinesList = document.getElementById('available-taglines-list');
+        const inputWrapper = taglineInput ? taglineInput.closest('.input-wrapper') : null;
+
+        if (!modal) return;
+
+        // Get unique taglines from cards
+        const uniqueTaglines = [...new Set(this.cards.map(c => c.tagline || '(untitled)'))];
+
+        // Set available taglines for validation
+        if (this.setAvailableTaglines) {
+            this.setAvailableTaglines(uniqueTaglines);
+        }
+
+        // Populate available taglines
+        if (taglinesList) {
+            taglinesList.innerHTML = uniqueTaglines
+                .map(tagline => `<div class="tagline-chip">${this.escapeHtml(tagline)}</div>`)
+                .join('');
+        }
+
+        // Clear input and validation
+        if (taglineInput) {
+            taglineInput.value = '';
+            taglineInput.classList.remove('has-validation');
+        }
+        if (inputWrapper) {
+            inputWrapper.classList.remove('has-validation');
+            inputWrapper.classList.remove('is-typing');
+        }
+        if (validationOverlay) {
+            validationOverlay.innerHTML = '';
+        }
+
+        if (this.syncCustomOrderOverlayMetrics) {
+            this.syncCustomOrderOverlayMetrics();
+        }
+        if (this.syncCustomOrderOverlayScroll) {
+            this.syncCustomOrderOverlayScroll();
+        }
+        if (this.resetCustomOrderTypingState) {
+            this.resetCustomOrderTypingState();
+        }
+
+        // Show modal
+        modal.classList.add('show');
+
+        // Initialize onboarding tutorial
+        if (!window.customOrderTutorial) {
+            window.customOrderTutorial = this.createCustomOrderTutorial();
+        }
+        window.customOrderTutorial.start();
+    }
+
+    createCustomOrderTutorial() {
+        const steps = [
+            {
+                target: '#available-taglines-list',
+                title: 'Click taglines to add',
+                description: 'Click any tagline chip to add it to the input field.'
+            },
+            {
+                target: '#tagline-order-input',
+                title: 'Separate with commas',
+                description: 'Taglines are separated by commas. Invalid taglines appear in red.'
+            },
+            {
+                target: '.format-selector',
+                title: 'Choose format',
+                description: 'Select DOCX or PDF for your download.'
+            }
+        ];
+
+        let currentStep = 0;
+        let tutorialElement = null;
+        let hasCompleted = localStorage.getItem('customOrderTutorialCompleted') === 'true';
+
+        const showTutorialStep = (step) => {
+            const target = document.querySelector(step.target);
+            if (!target) return;
+
+            // Remove existing tutorial
+            if (tutorialElement) tutorialElement.remove();
+
+            // Create tutorial overlay
+            tutorialElement = document.createElement('div');
+            tutorialElement.className = 'tutorial-overlay active';
+            tutorialElement.innerHTML = `
+                <div class="tutorial-content">
+                    <h3 class="tutorial-title">${step.title}</h3>
+                    <p class="tutorial-description">${step.description}</p>
+                    <div class="tutorial-actions">
+                        <span class="tutorial-progress">${currentStep + 1}/${steps.length}</span>
+                        <button class="tutorial-next">
+                            ${currentStep < steps.length - 1 ? 'Next' : 'Got it'}
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            // Position near target
+            const rect = target.getBoundingClientRect();
+            const modal = document.getElementById('custom-order-modal');
+            const modalRect = modal.getBoundingClientRect();
+
+            tutorialElement.style.position = 'absolute';
+            tutorialElement.style.left = `${rect.left - modalRect.left + rect.width + 20}px`;
+            tutorialElement.style.top = `${rect.top - modalRect.top}px`;
+
+            modal.appendChild(tutorialElement);
+
+            // Add next button handler
+            const nextBtn = tutorialElement.querySelector('.tutorial-next');
+            nextBtn.addEventListener('click', () => tutorial.next());
+
+            // Highlight target
+            target.classList.add('tutorial-highlight');
+            setTimeout(() => target.classList.remove('tutorial-highlight'), 2000);
+        };
+
+        const completeTutorial = () => {
+            if (tutorialElement) {
+                tutorialElement.remove();
+                tutorialElement = null;
+            }
+            localStorage.setItem('customOrderTutorialCompleted', 'true');
+            hasCompleted = true;
+        };
+
+        const tutorial = {
+            start: () => {
+                if (hasCompleted) return;
+
+                setTimeout(() => {
+                    showTutorialStep(steps[currentStep]);
+                }, 400);
+            },
+            next: () => {
+                currentStep++;
+                if (currentStep < steps.length) {
+                    showTutorialStep(steps[currentStep]);
+                } else {
+                    completeTutorial();
+                }
+            },
+            reset: () => {
+                if (tutorialElement) {
+                    tutorialElement.remove();
+                    tutorialElement = null;
+                }
+                currentStep = 0;
+            },
+            restart: () => {
+                // Reset tutorial state
+                if (tutorialElement) {
+                    tutorialElement.remove();
+                    tutorialElement = null;
+                }
+                currentStep = 0;
+                hasCompleted = false;
+
+                // Start from beginning
+                setTimeout(() => {
+                    showTutorialStep(steps[currentStep]);
+                }, 100);
+            }
+        };
+
+        return tutorial;
+    }
+
+    async handleDownloadCustomOrder(taglines, format = 'docx') {
         if (!this.cards.length) {
             this.showToast('No cards to download', 'error');
             return;
         }
 
+        // Reorder cards based on tagline order
+        const orderedCards = [];
+        const taglinesLower = taglines.map(t => t.toLowerCase());
+
+        // Add cards in the specified order
+        for (const tagline of taglines) {
+            const taglineLower = tagline.toLowerCase();
+            const matchingCards = this.cards.filter(c => {
+                const cardTagline = (c.tagline || '(untitled)').toLowerCase();
+                return cardTagline === taglineLower;
+            });
+            orderedCards.push(...matchingCards);
+        }
+
+        // Add any remaining cards not in the specified order
+        const addedTaglines = new Set(taglinesLower);
+        const remainingCards = this.cards.filter(c => {
+            const cardTagline = (c.tagline || '(untitled)').toLowerCase();
+            return !addedTaglines.has(cardTagline);
+        });
+        orderedCards.push(...remainingCards);
+
+        if (orderedCards.length === 0) {
+            this.showToast('No matching cards found', 'error');
+            return;
+        }
+
+        // Download with ordered cards
+        await this.downloadCards(orderedCards, format);
+    }
+
+    async downloadCards(cards, format = 'docx') {
         // Preserve editing panel state during download
         const activeCardId = this.preserveEditingPanelState();
 
         try {
             // Collect highlight colors for each card
-            const cardsWithColors = this.cards.map((card, index) => {
-                // First check if the card already has a saved highlightColor
+            const cardsWithColors = cards.map((card) => {
                 let color = card.highlightColor || '#00FF00';
 
-                // If no saved color, try to get from editing panel
                 if (color === '#00FF00' && card.id && window.editingPanel) {
                     color = window.editingPanel.selectedColors.get(card.id) || '#00FF00';
                 }
 
-                // Fallback: find by matching DOM elements
                 if (color === '#00FF00' && card.id) {
                     const cardElement = document.querySelector(`[data-card-id="${card.id}"]`);
                     if (cardElement && window.editingPanel) {
@@ -1105,33 +1675,40 @@ export class CardCutterApp {
                 return {...card, highlightColor: color};
             });
 
+            const endpoint = format === 'pdf' ? '/api/download-pdf-bulk' : '/api/download-docx-bulk';
+            const fileExtension = format === 'pdf' ? 'pdf' : 'docx';
 
-            const response = await fetch(`${API_BASE}/api/download-docx-bulk`, {
+            const response = await fetch(`${API_BASE}${endpoint}`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({cards: cardsWithColors})
             });
+
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
             const blob = await response.blob();
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `cards_${Date.now()}.docx`;
+            a.download = `cards_${Date.now()}.${fileExtension}`;
             document.body.appendChild(a);
             a.click();
             window.URL.revokeObjectURL(url);
             document.body.removeChild(a);
-            this.showToast('All cards downloaded!', 'success');
+            this.showToast(`Downloaded ${cards.length} cards as ${format.toUpperCase()}!`, 'success');
         } catch (e) {
             console.error(e);
             this.showToast('Failed to download cards', 'error');
         } finally {
-            // Clear download flag and restore editing panel state
             if (window.editingPanel) {
                 window.editingPanel.isDownloading = false;
             }
             this.restoreEditingPanelState(activeCardId);
         }
+    }
+
+    async handleDownloadAll(format = 'docx') {
+        await this.downloadCards(this.cards, format);
     }
 
     preserveEditingPanelState() {

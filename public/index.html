@@ -45,15 +45,60 @@
                                 <path d="M4.5 7.5H15.5V20.5H4.5Z"/>
                             </svg>
                         </button>
-                        <button class="primary-button download-all" id="download-all-button">
-                            <span class="button-text">Download</span>
-                            <svg class="button-icon" fill="none" height="18" viewBox="0 0 24 24" width="18"
-                                 xmlns="http://www.w3.org/2000/svg">
-                                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"
-                                      stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
-                                      stroke-width="2"/>
-                            </svg>
-                        </button>
+                        <div class="dropdown-wrapper">
+                            <button class="primary-button download-all" id="download-all-button">
+                                <span class="button-text">Download</span>
+                                <svg class="button-icon download-icon" fill="none" height="18" viewBox="0 0 24 24"
+                                     width="18"
+                                     xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"
+                                          stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
+                                          stroke-width="2"/>
+                                </svg>
+                                <svg class="button-icon chevron-icon" fill="none" height="14" viewBox="0 0 24 24"
+                                     width="14"
+                                     xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-linecap="round"
+                                          stroke-linejoin="round"
+                                          stroke-width="2"/>
+                                </svg>
+                            </button>
+                            <div class="dropdown-menu" id="download-dropdown">
+                                <button class="dropdown-item" data-format="docx">
+                                    <svg class="dropdown-icon" fill="none" height="16" viewBox="0 0 24 24" width="16"
+                                         xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z"
+                                              stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
+                                              stroke-width="2"/>
+                                        <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" stroke="currentColor"
+                                              stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
+                                    </svg>
+                                    <span>Download as DOCX</span>
+                                </button>
+                                <button class="dropdown-item" data-format="pdf">
+                                    <svg class="dropdown-icon" fill="none" height="16" viewBox="0 0 24 24" width="16"
+                                         xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z"
+                                              stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
+                                              stroke-width="2"/>
+                                        <path d="M14 2v6h6" stroke="currentColor" stroke-linecap="round"
+                                              stroke-linejoin="round" stroke-width="2"/>
+                                    </svg>
+                                    <span>Download as PDF</span>
+                                </button>
+                                <button class="dropdown-item" id="custom-order-btn">
+                                    <svg class="dropdown-icon" fill="none" height="16" viewBox="0 0 24 24" width="16"
+                                         xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" stroke-linecap="round"
+                                              stroke-linejoin="round" stroke-width="2"/>
+                                        <circle cx="7" cy="6" fill="currentColor" r="1"/>
+                                        <circle cx="7" cy="12" fill="currentColor" r="1"/>
+                                        <circle cx="7" cy="18" fill="currentColor" r="1"/>
+                                    </svg>
+                                    <span>Custom Order...</span>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -163,6 +208,74 @@
             <div class="onboarding-tooltip" id="onboarding-tooltip">
                 <div class="tooltip-arrow"></div>
                 <div class="tooltip-content" id="tooltip-content"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Order Modal -->
+    <div class="modal-overlay" id="custom-order-modal">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h2 class="modal-title">Custom Download Order</h2>
+                <button aria-label="Close modal" class="modal-close" id="close-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="input-group">
+                    <label class="modal-label" for="tagline-order-input">Tagline Order</label>
+                    <div class="input-wrapper">
+                        <div class="input-validation-overlay" id="validation-overlay"></div>
+                        <textarea
+                                class="modal-textarea"
+                                id="tagline-order-input"
+                                placeholder="Enter taglines separated by commas..."
+                                rows="4"
+                        ></textarea>
+                    </div>
+                    <div class="available-taglines">
+                        <span class="available-label">Click to add:</span>
+                        <div class="tagline-chips" id="available-taglines-list"></div>
+                    </div>
+                </div>
+                <div class="format-selector">
+                    <label class="modal-label">Download Format</label>
+                    <div class="format-buttons">
+                        <button class="format-btn active" data-format="docx">
+                            <svg fill="none" height="16" viewBox="0 0 24 24" width="16"
+                                 xmlns="http://www.w3.org/2000/svg">
+                                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z"
+                                      stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
+                                      stroke-width="2"/>
+                                <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" stroke="currentColor"
+                                      stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
+                            </svg>
+                            DOCX
+                        </button>
+                        <button class="format-btn" data-format="pdf">
+                            <svg fill="none" height="16" viewBox="0 0 24 24" width="16"
+                                 xmlns="http://www.w3.org/2000/svg">
+                                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6z"
+                                      stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
+                                      stroke-width="2"/>
+                                <path d="M14 2v6h6" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
+                                      stroke-width="2"/>
+                            </svg>
+                            PDF
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="tutorial-trigger" id="restart-tutorial-btn" title="Restart tutorial">
+                    <svg fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16z"
+                              fill="currentColor"/>
+                        <path d="M12 6v6l4 2" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
+                              stroke-width="2"/>
+                    </svg>
+                    Tutorial
+                </button>
+                <button class="secondary-button" id="cancel-order-btn">Cancel</button>
+                <button class="primary-button" id="download-order-btn">Download</button>
             </div>
         </div>
     </div>

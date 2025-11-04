@@ -2097,8 +2097,8 @@ body.initial-mode .input-group {
     display: inline-flex;
     align-items: center;
     padding-right: 0.25rem;
-    background: rgba(94, 114, 228, 0.15);
-    border-radius: 4px;
+    /*background: rgba(94, 114, 228, 0.15);*/
+    /*border-radius: 4px;*/
     color: var(--text-primary);
 }
 
@@ -2111,6 +2111,14 @@ body.initial-mode .input-group {
     background: rgba(94, 114, 228, 0.85);
     border-radius: 1px;
     animation: custom-caret-blink 1.2s steps(2, start) infinite;
+}
+
+.input-wrapper:not(.is-typing) .tagline-last-char {
+    display: none;
+}
+
+.modal-textarea:not(:focus) .tagline-last-char::after {
+    display: none;
 }
 
 .tagline-last-char--empty {

@@ -1309,7 +1309,11 @@ export class CardCutterApp {
             return escapeHtml(str).replace(/\r?\n/g, '<br />');
         };
 
-        const wrapLastCharacter = (segment) => {
+        const wrapLastCharacter = (segment, shouldWrap) => {
+            if (!shouldWrap) {
+                return formatSegment(segment);
+            }
+
             if (!segment) {
                 return '<span class="tagline-last-char tagline-last-char--empty">&nbsp;</span>';
             }
@@ -1328,6 +1332,9 @@ export class CardCutterApp {
             if (!taglineInput) return;
             const text = taglineInput.value;
             const textEndsWithComma = text.endsWith(',');
+            const showTypingCaret =
+                !!inputWrapper?.classList.contains('is-typing') &&
+                document.activeElement === taglineInput;
 
             if (!text) {
                 if (validationOverlay) validationOverlay.innerHTML = '';
@@ -1347,11 +1354,12 @@ export class CardCutterApp {
             const validatedParts = parts.map((part, index) => {
                 const trimmed = part.trim();
                 const isLast = index === parts.length - 1;
+                const isTypingSegment = isLast && !textEndsWithComma;
 
                 // If it's the last part and text doesn't end with comma, user is still typing
-                if (isLast && !textEndsWithComma) {
+                if (isTypingSegment && showTypingCaret) {
                     // Highlight last character with custom caret indicator
-                    return `<span class="tagline-typing">${wrapLastCharacter(part)}</span>`;
+                    return `<span class="tagline-typing">${wrapLastCharacter(part, true)}</span>`;
                 }
 
                 // For completed taglines (before last comma or if text ends with comma)
@@ -1361,7 +1369,10 @@ export class CardCutterApp {
                 );
 
                 const className = isValid ? 'tagline-valid' : 'tagline-invalid';
-                return `<span class="${className}">${formatSegment(part)}</span>`;
+                const content = isTypingSegment
+                    ? wrapLastCharacter(part, false)
+                    : formatSegment(part);
+                return `<span class="${className}">${content}</span>`;
             });
 
             validationOverlay.innerHTML = validatedParts.join(',');
@@ -1386,6 +1397,7 @@ export class CardCutterApp {
             taglineInput.addEventListener('scroll', syncOverlayScroll);
             taglineInput.addEventListener('focus', () => {
                 setTypingState(true);
+                validateInput();
                 syncOverlayMetrics();
                 requestAnimationFrame(() => {
                     syncOverlayScroll();
@@ -1393,6 +1405,7 @@ export class CardCutterApp {
             });
             taglineInput.addEventListener('blur', () => {
                 setTypingState(false);
+                validateInput();
             });
         }
 

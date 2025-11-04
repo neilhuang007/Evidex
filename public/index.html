@@ -99,6 +99,17 @@
                                 </button>
                             </div>
                         </div>
+                        <button class="whatsnew-inline" id="whatsnew-trigger" type="button">
+                            <svg aria-hidden="true" class="whatsnew-icon" fill="none" height="16" viewBox="0 0 24 24"
+                                 width="16" xmlns="http://www.w3.org/2000/svg">
+                                <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.5"/>
+                                <path d="M10.2 9.2a1.8 1.8 0 113.1 1.3c-.6.6-1.3.9-1.8 1.4-.4.4-.5.8-.5 1.3v.3"
+                                      stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
+                                      stroke-width="1.5"/>
+                                <circle cx="12" cy="17" fill="currentColor" r="1"/>
+                            </svg>
+                            <span>What's New</span>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -208,6 +219,43 @@
             <div class="onboarding-tooltip" id="onboarding-tooltip">
                 <div class="tooltip-arrow"></div>
                 <div class="tooltip-content" id="tooltip-content"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- What's New Tutorial -->
+    <div class="onboarding-overlay" id="whatsnew-overlay">
+        <div class="onboarding-container">
+            <div class="onboarding-content" id="whatsnew-content">
+                <div class="onboarding-progress">
+                    <span class="progress-text" id="whatsnew-progress-text">Step 1 of 5</span>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="whatsnew-progress-fill"></div>
+                    </div>
+                </div>
+
+                <div class="onboarding-step" id="whatsnew-step-content">
+                    <h2 class="onboarding-title">What's New in Evidex</h2>
+                    <p class="onboarding-description">
+                        Explore our latest improvements for orchestrating large evidence sets.
+                    </p>
+                </div>
+
+                <div class="onboarding-actions">
+                    <button class="onboarding-btn secondary" id="whatsnew-skip-btn">Dismiss</button>
+                    <div class="nav-buttons">
+                        <button class="onboarding-btn secondary" id="whatsnew-prev-btn" style="display: none;">Back
+                        </button>
+                        <button class="onboarding-btn primary" id="whatsnew-next-btn">Show Me</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="spotlight-border" id="whatsnew-spotlight"></div>
+
+            <div class="onboarding-tooltip" id="whatsnew-tooltip">
+                <div class="tooltip-arrow"></div>
+                <div class="tooltip-content" id="whatsnew-tooltip-content"></div>
             </div>
         </div>
     </div>

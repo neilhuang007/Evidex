@@ -1508,7 +1508,9 @@ export class CardCutterApp {
         if (!window.customOrderTutorial) {
             window.customOrderTutorial = this.createCustomOrderTutorial();
         }
-        window.customOrderTutorial.start();
+        if (!window.suppressCustomOrderTutorial) {
+            window.customOrderTutorial.start();
+        }
     }
 
     createCustomOrderTutorial() {

@@ -4,6 +4,7 @@ import {hexToRgba} from './utils.js';
 import {EditingPanel} from './EditingPanel.js';
 import {OnboardingTutorial} from './OnboardingTutorial.js';
 import {EvaluationService} from './EvaluationService.js';
+import {WhatsNewTutorial} from './WhatsNewTutorial.js';
 import {CardCutterApp} from './CardCutterApp.js';
 
 // Make hexToRgba globally available for backwards compatibility
@@ -24,6 +25,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initialize onboarding tutorial (but don't start it yet)
     window.onboarding = new OnboardingTutorial();
+
+    // Initialize What's New tutorial for recent features
+    window.whatsNewTutorial = new WhatsNewTutorial(app);
 
     // Make EvaluationService available globally
     window.EvaluationService = EvaluationService;

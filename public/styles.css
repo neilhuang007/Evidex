@@ -284,6 +284,43 @@ body.initial-mode .input-group {
     animation: fadeInDown 1s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
+.whatsnew-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    color: var(--primary-color);
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    transition: color var(--transition-fast);
+    text-decoration: none;
+}
+
+.whatsnew-inline:hover,
+.whatsnew-inline:focus {
+    color: var(--primary-dark);
+    text-decoration: underline;
+}
+
+.whatsnew-inline:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
+.whatsnew-inline span {
+    pointer-events: none;
+}
+
+.whatsnew-icon {
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+}
+
 .logo-wrapper {
     display: flex;
     align-items: center;
@@ -957,19 +994,19 @@ body.initial-mode .input-group {
 
 /* Side-by-side actions within cuts footer */
 .cuts-footer .action-buttons {
-    display: flex;
     --action-gap: var(--space-sm);
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
+    align-items: center;
     gap: var(--action-gap);
-    flex-wrap: nowrap;
     width: 100%;
 }
 
 .cuts-footer .action-buttons > .primary-button,
 .cuts-footer .action-buttons > .secondary-button {
-    width: auto; /* override global 100% on primary */
-    flex: 1 1 calc((100% - var(--action-gap)) / 2);
-    max-width: calc((100% - var(--action-gap)) / 2);
-    min-width: calc((100% - var(--action-gap)) / 2);
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
 }
 
 /* Copy button: same overall style and size as primary, but glassy */
@@ -1012,6 +1049,11 @@ body.initial-mode .input-group {
     transform: translateY(0);
     box-shadow: 0 10px 24px rgba(15, 23, 42, 0.14),
     inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.cuts-footer .action-buttons > .whatsnew-inline {
+    justify-self: end;
+    align-self: center;
 }
 
 .copy-button .button-icon {
@@ -1685,13 +1727,12 @@ body.initial-mode .input-group {
     }
 
     .cuts-footer .action-buttons {
-        flex-direction: row;
+        grid-template-columns: 1fr;
+        row-gap: var(--space-sm);
     }
 
-    .cuts-footer .action-buttons > .primary-button,
-    .cuts-footer .action-buttons > .secondary-button,
-    .cuts-footer .action-buttons > .dropdown-wrapper {
-        width: auto;
+    .cuts-footer .action-buttons > .whatsnew-inline {
+        justify-self: start;
     }
 
     .gradient-orb {
@@ -2550,11 +2591,29 @@ body.initial-mode .input-group {
     display: none;
     opacity: 0;
     transition: opacity 0.3s ease;
+    pointer-events: none;
 }
 
 .onboarding-overlay.show {
     display: block;
     opacity: 1;
+}
+
+.onboarding-overlay.show .onboarding-content,
+.onboarding-overlay.show .onboarding-tooltip {
+    pointer-events: auto;
+}
+
+#whatsnew-overlay {
+    z-index: 12000;
+}
+
+#whatsnew-overlay .onboarding-content {
+    z-index: 12002;
+}
+
+#whatsnew-overlay .spotlight-border {
+    z-index: 12001;
 }
 
 

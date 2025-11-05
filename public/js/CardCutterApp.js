@@ -64,6 +64,7 @@ export class CardCutterApp {
         });
 
         this.addInputAnimations();
+        this.setupImportModal();
     }
 
     // Check localStorage without mutating state
@@ -1215,6 +1216,294 @@ export class CardCutterApp {
 
         // Setup custom order modal
         this.setupCustomOrderModal();
+    }
+
+    setupImportModal() {
+        const importIconBtn = document.getElementById('import-icon-btn');
+        const modal = document.getElementById('import-source-modal');
+        const closeBtn = document.getElementById('close-import-modal');
+        const cancelBtn = document.getElementById('cancel-import-btn');
+        const submitBtn = document.getElementById('import-submit-button');
+        const textarea = document.getElementById('import-source-input');
+
+        if (!importIconBtn || !modal || !textarea || !submitBtn) return;
+
+        // Open modal
+        const openModal = () => {
+            modal.classList.add('show');
+            textarea.value = '';
+            setTimeout(() => textarea.focus(), 100);
+        };
+
+        // Close modal
+        const closeModal = () => {
+            modal.classList.remove('show');
+            textarea.value = '';
+        };
+
+        // Event listeners
+        importIconBtn.addEventListener('click', openModal);
+        closeBtn?.addEventListener('click', closeModal);
+        cancelBtn?.addEventListener('click', closeModal);
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeModal();
+        });
+
+        // Handle import submission
+        submitBtn.addEventListener('click', async () => {
+            const input = textarea.value.trim();
+            if (!input) {
+                this.showToast('Please paste content to import', 'error');
+                return;
+            }
+
+            // First try to parse as JSON or structured format
+            const detected = this.detectAndParseInput(input);
+            if (detected) {
+                // Single item detected - populate fields
+                this.urlInput.value = detected.link;
+                this.claimInput.value = detected.tagline;
+
+                // Trigger validation and reveal
+                this.validateInputs();
+                this.maybeRevealInitialExtra();
+                this.updateHintState(this.urlInput);
+                this.updateHintState(this.claimInput);
+
+                // Close modal
+                closeModal();
+
+                this.showToast('Successfully imported source data', 'success');
+            } else {
+                // Not structured format - use AI to extract evidence
+                this.showToast('Analyzing text with AI...', 'info');
+                submitBtn.disabled = true;
+                submitBtn.style.opacity = '0.6';
+
+                try {
+                    const extracted = await this.extractEvidenceWithAI(input);
+                    if (extracted && extracted.length > 0) {
+                        // Add all extracted items as cards
+                        await this.importMultipleEvidence(extracted);
+
+                        // Close modal
+                        closeModal();
+
+                        this.showToast(`Successfully imported ${extracted.length} evidence item${extracted.length > 1 ? 's' : ''}`, 'success');
+                    } else {
+                        this.showToast('No evidence found in text', 'error');
+                    }
+                } catch (error) {
+                    console.error('AI extraction error:', error);
+                    this.showToast('Failed to extract evidence. Please check format', 'error');
+                } finally {
+                    submitBtn.disabled = false;
+                    submitBtn.style.opacity = '1';
+                }
+            }
+        });
+    }
+
+    detectAndParseInput(input) {
+        // Try to parse as JSON first
+        try {
+            const parsed = JSON.parse(input);
+            if (parsed.tagline && parsed.link) {
+                return {
+                    tagline: String(parsed.tagline).trim(),
+                    link: String(parsed.link).trim()
+                };
+            }
+            // Try alternative JSON keys
+            if (parsed.claim && parsed.url) {
+                return {
+                    tagline: String(parsed.claim).trim(),
+                    link: String(parsed.url).trim()
+                };
+            }
+        } catch (e) {
+            // Not JSON, try to parse as AI response
+        }
+
+        // Try to parse as AI response text
+        // Common patterns:
+        // 1. "Tagline: ...\nLink: ..." or "Link: ...\nTagline: ..."
+        // 2. "tagline: ...\nlink: ..." (case insensitive)
+        // 3. Multiple line format with clear labels
+
+        const taglinePatterns = [
+            /tagline\s*[:\-]\s*(.+)/i,
+            /claim\s*[:\-]\s*(.+)/i,
+            /argument\s*[:\-]\s*(.+)/i
+        ];
+
+        const linkPatterns = [
+            /link\s*[:\-]\s*(.+)/i,
+            /url\s*[:\-]\s*(.+)/i,
+            /source\s*[:\-]\s*(.+)/i,
+            /website\s*[:\-]\s*(.+)/i
+        ];
+
+        let tagline = null;
+        let link = null;
+
+        // Try to extract tagline
+        for (const pattern of taglinePatterns) {
+            const match = input.match(pattern);
+            if (match) {
+                tagline = match[1].trim();
+                // Remove quotes if present
+                tagline = tagline.replace(/^["']|["']$/g, '');
+                break;
+            }
+        }
+
+        // Try to extract link
+        for (const pattern of linkPatterns) {
+            const match = input.match(pattern);
+            if (match) {
+                link = match[1].trim();
+                // Remove quotes if present
+                link = link.replace(/^["']|["']$/g, '');
+                // Remove markdown link syntax if present [text](url)
+                const mdLinkMatch = link.match(/\[.*?\]\((https?:\/\/[^\)]+)\)/);
+                if (mdLinkMatch) {
+                    link = mdLinkMatch[1];
+                }
+                break;
+            }
+        }
+
+        // If we found both, return them
+        if (tagline && link) {
+            return {tagline, link};
+        }
+
+        // Last resort: try to find any URL in the text
+        const urlMatch = input.match(/(https?:\/\/[^\s\)]+)/);
+        if (urlMatch) {
+            link = urlMatch[1];
+            // Try to extract the remaining text as tagline (remove the URL)
+            const remainingText = input.replace(urlMatch[0], '').trim();
+            // Clean up common prefixes/labels
+            const cleanedText = remainingText
+                .replace(/^(tagline|claim|argument|link|url|source|website)\s*[:\-]\s*/i, '')
+                .replace(/[:\-]\s*$/, '')
+                .trim();
+
+            if (cleanedText.length > 0 && cleanedText.length < 500) {
+                tagline = cleanedText;
+                return {tagline, link};
+            }
+        }
+
+        return null;
+    }
+
+    async extractEvidenceWithAI(text) {
+        try {
+            const response = await fetch(`${API_BASE}/api/extract-evidence`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({text})
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Failed to extract evidence');
+            }
+
+            const data = await response.json();
+            return data.items || [];
+        } catch (error) {
+            console.error('Failed to extract evidence with AI:', error);
+            throw error;
+        }
+    }
+
+    async importMultipleEvidence(items) {
+        if (!items || items.length === 0) return;
+
+        const wasEmpty = this.cards.length === 0;
+
+        // Add all items as cards
+        for (const item of items) {
+            const tempId = `c_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+            const card = {
+                id: tempId,
+                tagline: item.tagline.replace(/,/g, ''), // Remove commas for custom ordering
+                link: item.link,
+                cite: '',
+                content: '',
+                pending: true
+            };
+            this.cards.push(card);
+        }
+
+        this.persistCards();
+        this.renderCuts();
+
+        if (wasEmpty) {
+            this.switchToSplitLayout();
+        }
+
+        // Now process each card to get the actual evidence
+        for (let i = 0; i < items.length; i++) {
+            const item = items[i];
+            const cardIndex = this.cards.length - items.length + i;
+
+            try {
+                const response = await fetch(`${API_BASE}/api/cite`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        link: item.link,
+                        tagline: item.tagline
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    const card = this.cards[cardIndex];
+                    if (card) {
+                        card.cite = data.cite || '';
+                        card.content = data.content || '';
+                        card.pending = false;
+                        this.persistCards();
+                        this.renderCuts();
+                    }
+                } else {
+                    // Mark as failed but keep the card
+                    const card = this.cards[cardIndex];
+                    if (card) {
+                        card.cite = 'Failed to fetch evidence';
+                        card.content = '';
+                        card.pending = false;
+                        this.persistCards();
+                        this.renderCuts();
+                    }
+                }
+            } catch (error) {
+                console.error(`Failed to fetch evidence for ${item.tagline}:`, error);
+                const card = this.cards[cardIndex];
+                if (card) {
+                    card.cite = 'Error fetching evidence';
+                    card.content = '';
+                    card.pending = false;
+                    this.persistCards();
+                    this.renderCuts();
+                }
+            }
+
+            // Small delay between requests to avoid overwhelming the API
+            if (i < items.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+        }
     }
 
     setupCustomOrderModal() {

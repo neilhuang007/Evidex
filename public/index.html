@@ -126,14 +126,22 @@
                             <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
                             <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
                         </svg>
-                        <input 
-                            type="url" 
-                            id="url-input" 
-                            class="text-input" 
+                        <input
+                                class="text-input"
+                                id="url-input"
+                                type="url"
                             placeholder=""
                             autocomplete="off"
                             required
                         />
+                        <button class="import-icon-btn" id="import-icon-btn" title="Import sources from text"
+                                type="button">
+                            <svg fill="none" height="16" viewBox="0 0 24 24" width="16"
+                                 xmlns="http://www.w3.org/2000/svg">
+                                <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
+                                      stroke-width="2"/>
+                            </svg>
+                        </button>
                         <div class="input-hint">Enter the URL of the article or document you want to analyze</div>
                     </div>
                 </div>
@@ -167,7 +175,7 @@
                 </div>
             </div>
 
-            
+
         </main>
     </div>
 
@@ -324,6 +332,34 @@
                 </button>
                 <button class="secondary-button" id="cancel-order-btn">Cancel</button>
                 <button class="primary-button" id="download-order-btn">Download</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Source Modal -->
+    <div class="modal-overlay" id="import-source-modal">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h2 class="modal-title">Import Sources</h2>
+                <button aria-label="Close modal" class="modal-close" id="close-import-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="input-group">
+                    <label class="modal-label" for="import-source-input">Paste Content</label>
+                    <div class="input-wrapper">
+                        <textarea
+                                class="modal-textarea"
+                                id="import-source-input"
+                                placeholder="Paste text with evidence and citations, JSON format {&quot;tagline&quot;: &quot;...&quot;, &quot;link&quot;: &quot;...&quot;}, or AI response. We'll automatically extract evidence."
+                                rows="8"
+                        ></textarea>
+                    </div>
+                    <p class="modal-hint">AI will automatically detect format and extract evidence with citations</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="secondary-button" id="cancel-import-btn">Cancel</button>
+                <button class="primary-button" id="import-submit-button">Import</button>
             </div>
         </div>
     </div>

@@ -33,16 +33,19 @@
                     <div class="cuts-empty">No selections yet. Add research papers and websites using the source panel</div>
                 </div>
                 <div class="cuts-footer">
+                    <!-- Progress bar -->
+                    <div class="evidence-progress-bar" id="evidence-progress-bar" style="display: none;">
+                        <div class="evidence-progress-fill" id="evidence-progress-fill"></div>
+                    </div>
                     <div class="action-buttons">
-                        <button class="secondary-button copy-button" id="copy-all-button"
-                                title="Copy formatted cards to clipboard">
-                            <span class="button-text">Copy</span>
-                            <svg aria-label="Copy icon" class="button-icon" fill="none" height="20"
+                        <button class="secondary-button clear-button" id="clear-all-button"
+                                title="Clear all evidence cards">
+                            <span class="button-text">Clear</span>
+                            <svg aria-label="Clear icon" class="button-icon" fill="none" height="20"
                                  role="img" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
                                  stroke-width="1.5" viewBox="0 0 24 24" width="20" xmlns="http://www.w3.org/2000/svg">
-                                <title>Copy</title>
-                                <path d="M8.5 3.5H19.5V14.5H8.5Z"/>
-                                <path d="M4.5 7.5H15.5V20.5H4.5Z"/>
+                                <title>Clear</title>
+                                <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
                             </svg>
                         </button>
                         <div class="dropdown-wrapper">
@@ -64,6 +67,16 @@
                                 </svg>
                             </button>
                             <div class="dropdown-menu" id="download-dropdown">
+                                <button class="dropdown-item" id="copy-all-item">
+                                    <svg class="dropdown-icon" fill="none" height="16" viewBox="0 0 24 24" width="16"
+                                         xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M8.5 3.5H19.5V14.5H8.5Z" stroke="currentColor" stroke-linecap="round"
+                                              stroke-linejoin="round" stroke-width="1.5"/>
+                                        <path d="M4.5 7.5H15.5V20.5H4.5Z" stroke="currentColor" stroke-linecap="round"
+                                              stroke-linejoin="round" stroke-width="1.5"/>
+                                    </svg>
+                                    <span>Copy to Clipboard</span>
+                                </button>
                                 <button class="dropdown-item" data-format="docx">
                                     <svg class="dropdown-icon" fill="none" height="16" viewBox="0 0 24 24" width="16"
                                          xmlns="http://www.w3.org/2000/svg">
@@ -118,7 +131,7 @@
                 <div class="card-header">
                     <h2 class="card-title">Source Panel</h2>
                 </div>
-                
+
                 <div class="input-group">
                     <label for="url-input" class="input-label">Website URL</label>
                     <div class="input-wrapper">
@@ -354,7 +367,20 @@
                                 rows="8"
                         ></textarea>
                     </div>
-                    <p class="modal-hint">AI will automatically detect format and extract evidence with citations</p>
+                </div>
+
+                <!-- Import Progress Indicator -->
+                <div class="import-progress-indicator" id="import-progress-indicator" style="display: none;">
+                    <div class="processing-content">
+                        <div class="processing-spinner"></div>
+                        <div class="processing-text">
+                            <span class="processing-message" id="import-processing-message">Processing sources...</span>
+                            <span class="processing-count" id="import-processing-count">0 / 0</span>
+                        </div>
+                    </div>
+                    <div class="processing-bar">
+                        <div class="processing-bar-fill" id="import-processing-bar-fill" style="width: 0%"></div>
+                    </div>
                 </div>
             </div>
             <div class="modal-footer">

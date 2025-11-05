@@ -14,11 +14,13 @@ export class CardCutterApp {
         this.titleEl = document.querySelector('.title');
         this.cutsList = document.getElementById('cuts-list');
         this.downloadAllButton = document.getElementById('download-all-button');
-        this.copyAllButton = document.getElementById('copy-all-button');
+        this.clearAllButton = document.getElementById('clear-all-button');
         this.cutsPanel = document.getElementById('cuts-panel');
         this.inputCard = document.querySelector('.input-card');
         this.toast = document.getElementById('toast');
         this.toastAction = document.getElementById('toast-action');
+        this.evidenceProgressBar = document.getElementById('evidence-progress-bar');
+        this.evidenceProgressFill = document.getElementById('evidence-progress-fill');
 
         this.currentData = null;
         this.lastDeleted = null; // { type: 'card'|'group', card?, index?, items?: [card,index][] }
@@ -41,7 +43,11 @@ export class CardCutterApp {
         // Setup dropdown functionality
         this.setupDownloadDropdown();
 
-        if (this.copyAllButton) this.copyAllButton.addEventListener('click', () => this.handleCopyAll());
+        if (this.clearAllButton) this.clearAllButton.addEventListener('click', () => this.handleClearAll());
+
+        // Add copy option to dropdown
+        const copyAllItem = document.getElementById('copy-all-item');
+        if (copyAllItem) copyAllItem.addEventListener('click', () => this.handleCopyAll());
 
         this.urlInput.addEventListener('input', () => {
             this.validateInputs();
@@ -457,6 +463,10 @@ export class CardCutterApp {
     renderCuts() {
         const target = this.cutsList;
         target.innerHTML = '';
+
+        // Update progress bar based on pending cards
+        this.updateEvidenceProgressBar();
+
         if (!this.cards.length) {
             target.innerHTML = '<div class="cuts-empty">No cards yet. Cut your first card →</div>';
             return;
@@ -1284,10 +1294,8 @@ export class CardCutterApp {
                     const extracted = await this.extractEvidenceWithAI(input);
                     if (extracted && extracted.length > 0) {
                         // Add all extracted items as cards
+                        // Modal will close automatically after progress completes
                         await this.importMultipleEvidence(extracted);
-
-                        // Close modal
-                        closeModal();
 
                         this.showToast(`Successfully imported ${extracted.length} evidence item${extracted.length > 1 ? 's' : ''}`, 'success');
                     } else {
@@ -1428,6 +1436,9 @@ export class CardCutterApp {
 
         const wasEmpty = this.cards.length === 0;
 
+        // Show progress indicator
+        this.showProgressIndicator(items.length);
+
         // Add all items as cards
         for (const item of items) {
             const tempId = `c_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -1454,6 +1465,9 @@ export class CardCutterApp {
             const item = items[i];
             const cardIndex = this.cards.length - items.length + i;
 
+            // Update progress
+            this.updateProgressIndicator(i + 1, items.length);
+
             try {
                 const response = await fetch(`${API_BASE}/api/cite`, {
                     method: 'POST',
@@ -1473,6 +1487,15 @@ export class CardCutterApp {
                         card.cite = data.cite || '';
                         card.content = data.content || '';
                         card.pending = false;
+
+                        // Auto-evaluate the imported card if evaluation wasn't included
+                        if (!data.evaluation) {
+                            this.evaluateCard(card);
+                        } else {
+                            card.evaluationScore = data.evaluation.score;
+                            card.evaluationBreakdown = data.evaluation;
+                        }
+
                         this.persistCards();
                         this.renderCuts();
                     }
@@ -1503,6 +1526,46 @@ export class CardCutterApp {
             if (i < items.length - 1) {
                 await new Promise(resolve => setTimeout(resolve, 500));
             }
+        }
+
+        // Hide progress indicator
+        this.hideProgressIndicator();
+    }
+
+    showProgressIndicator(total) {
+        const indicator = document.getElementById('import-progress-indicator');
+        const countEl = document.getElementById('import-processing-count');
+        const barFill = document.getElementById('import-processing-bar-fill');
+
+        if (indicator) {
+            indicator.style.display = 'block';
+            if (countEl) countEl.textContent = `0 / ${total}`;
+            if (barFill) barFill.style.width = '0%';
+        }
+    }
+
+    updateProgressIndicator(current, total) {
+        const countEl = document.getElementById('import-processing-count');
+        const barFill = document.getElementById('import-processing-bar-fill');
+
+        if (countEl) countEl.textContent = `${current} / ${total}`;
+        if (barFill) {
+            const percentage = (current / total) * 100;
+            barFill.style.width = `${percentage}%`;
+        }
+    }
+
+    hideProgressIndicator() {
+        const indicator = document.getElementById('import-progress-indicator');
+        const modal = document.getElementById('import-source-modal');
+        if (indicator) {
+            setTimeout(() => {
+                indicator.style.display = 'none';
+                // Close modal after hiding progress
+                if (modal) {
+                    modal.classList.remove('show');
+                }
+            }, 1000);
         }
     }
 
@@ -2112,6 +2175,41 @@ export class CardCutterApp {
             formatted: 'Copied formatted cards to clipboard',
             plain: 'Copied cards (plain text) to clipboard'
         });
+    }
+
+    // Clear all evidence cards
+    handleClearAll() {
+        if (this.cards.length === 0) {
+            this.showToast('No cards to clear', 'info');
+            return;
+        }
+
+        if (confirm('Are you sure you want to clear all evidence cards? This cannot be undone.')) {
+            this.cards = [];
+            this.persistCards();
+            this.renderCuts();
+            this.showToast('All cards cleared', 'success');
+        }
+    }
+
+    // Update evidence progress bar based on pending cards
+    updateEvidenceProgressBar() {
+        if (!this.evidenceProgressBar || !this.evidenceProgressFill) return;
+
+        const totalCards = this.cards.length;
+        const pendingCards = this.cards.filter(c => c.pending).length;
+        const completedCards = totalCards - pendingCards;
+
+        if (pendingCards > 0) {
+            // Show progress bar when processing
+            this.evidenceProgressBar.style.display = 'block';
+            const percentage = (completedCards / totalCards) * 100;
+            this.evidenceProgressFill.style.width = `${percentage}%`;
+        } else {
+            // Hide progress bar when no processing
+            this.evidenceProgressBar.style.display = 'none';
+            this.evidenceProgressFill.style.width = '0%';
+        }
     }
 
     async handleCopyGroup(tagline, cards) {

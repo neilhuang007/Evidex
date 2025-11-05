@@ -753,13 +753,15 @@ body.initial-mode .input-group {
 
 /* Import Progress Indicator in Modal */
 .import-progress-indicator {
-    background: linear-gradient(135deg, rgba(94, 114, 228, 0.08) 0%, rgba(123, 140, 238, 0.05) 100%);
+    background: rgba(94, 114, 228, 0.08);
     backdrop-filter: blur(10px);
-    border: var(--border-width-xs) solid rgba(94, 114, 228, 0.2);
+    border: 1px solid rgba(94, 114, 228, 0.3);
     border-radius: 12px;
     padding: var(--space-md);
     margin-top: var(--space-md);
     animation: fadeIn 0.3s ease;
+    position: relative;
+    z-index: 100;
 }
 
 .processing-content {
@@ -801,21 +803,23 @@ body.initial-mode .input-group {
 .processing-count {
     font-size: 0.875rem;
     font-weight: 600;
-    color: var(--text-secondary);
+    color: var(--primary-color);
     font-family: 'Monaco', 'Courier New', monospace;
+    font-variant-numeric: tabular-nums;
 }
 
 .processing-bar {
     width: 100%;
     height: 6px;
-    background: rgba(94, 114, 228, 0.1);
+    background: rgba(94, 114, 228, 0.25);
     border-radius: 3px;
     overflow: hidden;
+    border: 1px solid rgba(94, 114, 228, 0.2);
 }
 
 .processing-bar-fill {
     height: 100%;
-    background: linear-gradient(90deg, var(--primary-color) 0%, var(--primary-light) 100%);
+    background: var(--primary-color);
     border-radius: 3px;
     transition: width 0.3s ease;
 }
@@ -1104,24 +1108,50 @@ body.initial-mode .input-group {
 .cuts-footer { margin-top: auto; }
 
 /* Evidence progress bar */
-.evidence-progress-bar {
-    height: 4px;
-    background: rgba(255, 255, 255, 0.15);
-    border-radius: 2px;
-    overflow: hidden;
+.evidence-progress-container {
+    background: rgba(94, 114, 228, 0.08);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(94, 114, 228, 0.3);
+    border-radius: 8px;
+    padding: var(--space-sm) var(--space-md);
     margin-bottom: var(--space-sm);
-    transition: opacity 0.3s ease;
+    position: relative;
+    z-index: 100;
+}
+
+.evidence-progress-text {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-xs);
+    font-size: 0.875rem;
+}
+
+.evidence-progress-label {
+    font-weight: 500;
+    color: var(--primary-color);
+}
+
+.evidence-progress-count {
+    font-weight: 600;
+    color: var(--primary-color);
+    font-variant-numeric: tabular-nums;
+}
+
+.evidence-progress-bar-track {
+    height: 6px;
+    background: rgba(94, 114, 228, 0.25);
+    border-radius: 3px;
+    overflow: hidden;
+    border: 1px solid rgba(94, 114, 228, 0.2);
 }
 
 .evidence-progress-fill {
     height: 100%;
-    background: linear-gradient(90deg,
-    rgba(94, 114, 228, 0.8) 0%,
-    rgba(139, 92, 246, 0.8) 100%);
+    background: var(--primary-color);
     width: 0%;
     transition: width 0.3s ease;
-    border-radius: 2px;
-    box-shadow: 0 0 8px rgba(94, 114, 228, 0.4);
+    border-radius: 3px;
 }
 
 /* Side-by-side actions within cuts footer */

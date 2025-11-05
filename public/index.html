@@ -34,8 +34,14 @@
                 </div>
                 <div class="cuts-footer">
                     <!-- Progress bar -->
-                    <div class="evidence-progress-bar" id="evidence-progress-bar" style="display: none;">
-                        <div class="evidence-progress-fill" id="evidence-progress-fill"></div>
+                    <div class="evidence-progress-container" id="evidence-progress-bar" style="display: none;">
+                        <div class="evidence-progress-text">
+                            <span class="evidence-progress-label">Processing evidence...</span>
+                            <span class="evidence-progress-count" id="evidence-progress-count">0 / 0</span>
+                        </div>
+                        <div class="evidence-progress-bar-track">
+                            <div class="evidence-progress-fill" id="evidence-progress-fill"></div>
+                        </div>
                     </div>
                     <div class="action-buttons">
                         <button class="secondary-button clear-button" id="clear-all-button"

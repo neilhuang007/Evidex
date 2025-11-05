@@ -491,11 +491,12 @@ export class CardCutterApp {
             if (isLastGroup) {
                 groupEl.classList.add('is-last-card');
             }
-            groupEl.setAttribute('draggable', 'true');
             groupEl.dataset.tagline = tagline;
 
             const header = document.createElement('div');
             header.className = 'group-header';
+            header.setAttribute('draggable', 'true');
+            header.style.cursor = 'move';
             const title = document.createElement('div');
             title.className = 'group-title';
             title.textContent = tagline;
@@ -733,8 +734,8 @@ export class CardCutterApp {
                 body.appendChild(item);
             });
 
-            // Add drag event listeners
-            this.addDragListeners(groupEl, tagline);
+            // Add drag event listeners (header is the drag handle, groupEl is the container)
+            this.addDragListeners(header, groupEl, tagline);
 
             groupEl.appendChild(header);
             groupEl.appendChild(body);
@@ -762,49 +763,51 @@ export class CardCutterApp {
         });
     }
 
-    addDragListeners(element, tagline) {
-        let draggedElement = null;
+    addDragListeners(dragHandle, container, tagline) {
+        let draggedContainer = null;
 
-        element.addEventListener('dragstart', (e) => {
-            draggedElement = element;
-            element.classList.add('dragging');
+        // Drag start/end on the drag handle (header)
+        dragHandle.addEventListener('dragstart', (e) => {
+            draggedContainer = container;
+            container.classList.add('dragging');
             e.dataTransfer.effectAllowed = 'move';
-            e.dataTransfer.setData('text/html', element.innerHTML);
+            e.dataTransfer.setData('text/html', container.innerHTML);
             e.dataTransfer.setData('text/plain', tagline);
         });
 
-        element.addEventListener('dragend', (e) => {
-            element.classList.remove('dragging');
+        dragHandle.addEventListener('dragend', (e) => {
+            container.classList.remove('dragging');
             document.querySelectorAll('.card-group').forEach(el => {
                 el.classList.remove('drag-over');
             });
         });
 
-        element.addEventListener('dragover', (e) => {
+        // Drop zone on the container (groupEl)
+        container.addEventListener('dragover', (e) => {
             e.preventDefault();
             e.dataTransfer.dropEffect = 'move';
 
             const dragging = document.querySelector('.dragging');
-            if (dragging && dragging !== element) {
-                element.classList.add('drag-over');
+            if (dragging && dragging !== container) {
+                container.classList.add('drag-over');
             }
         });
 
-        element.addEventListener('dragleave', (e) => {
-            if (e.target === element) {
-                element.classList.remove('drag-over');
+        container.addEventListener('dragleave', (e) => {
+            if (e.target === container) {
+                container.classList.remove('drag-over');
             }
         });
 
-        element.addEventListener('drop', (e) => {
+        container.addEventListener('drop', (e) => {
             e.preventDefault();
-            element.classList.remove('drag-over');
+            container.classList.remove('drag-over');
 
             const dragging = document.querySelector('.dragging');
-            if (dragging && dragging !== element) {
+            if (dragging && dragging !== container) {
                 // Get the taglines
                 const draggedTagline = dragging.dataset.tagline;
-                const targetTagline = element.dataset.tagline;
+                const targetTagline = container.dataset.tagline;
 
                 // Reorder the cards
                 this.reorderCardsByTagline(draggedTagline, targetTagline);
@@ -2184,11 +2187,22 @@ export class CardCutterApp {
             return;
         }
 
-        if (confirm('Are you sure you want to clear all evidence cards? This cannot be undone.')) {
+        if (confirm('Are you sure you want to clear all evidence cards?')) {
+            // Save all cards with their indices for undo
+            const savedCards = this.cards.map((card, index) => [card, index]);
             this.cards = [];
             this.persistCards();
             this.renderCuts();
-            this.showToast('All cards cleared', 'success');
+            this.lastDeleted = {type: 'all', items: savedCards};
+            this.showToast('All cards cleared', 'success', 'Undo', () => {
+                // Restore all cards at their original positions
+                savedCards.sort((a, b) => a[1] - b[1]).forEach(([card, idx]) => {
+                    const pos = Math.min(idx, this.cards.length);
+                    this.cards.splice(pos, 0, card);
+                });
+                this.persistCards();
+                this.renderCuts();
+            });
         }
     }
 
@@ -2205,6 +2219,12 @@ export class CardCutterApp {
             this.evidenceProgressBar.style.display = 'block';
             const percentage = (completedCards / totalCards) * 100;
             this.evidenceProgressFill.style.width = `${percentage}%`;
+
+            // Update progress count text
+            const countEl = document.getElementById('evidence-progress-count');
+            if (countEl) {
+                countEl.textContent = `${completedCards} / ${totalCards}`;
+            }
         } else {
             // Hide progress bar when no processing
             this.evidenceProgressBar.style.display = 'none';

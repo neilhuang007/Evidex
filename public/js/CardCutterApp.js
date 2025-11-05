@@ -1535,15 +1535,30 @@ export class CardCutterApp {
         this.hideProgressIndicator();
     }
 
-    showProgressIndicator(total) {
+    showProgressIndicator(total = null) {
         const indicator = document.getElementById('import-progress-indicator');
         const countEl = document.getElementById('import-processing-count');
         const barFill = document.getElementById('import-processing-bar-fill');
+        const barTrack = document.querySelector('.processing-bar');
 
         if (indicator) {
             indicator.style.display = 'block';
-            if (countEl) countEl.textContent = `0 / ${total}`;
-            if (barFill) barFill.style.width = '0%';
+
+            if (total !== null && total !== undefined) {
+                // Known total - show determinate progress
+                if (countEl) countEl.textContent = `0 / ${total}`;
+                if (barFill) {
+                    barFill.style.width = '0%';
+                    barFill.classList.remove('indeterminate');
+                }
+            } else {
+                // Unknown total - show indeterminate progress
+                if (countEl) countEl.textContent = 'Processing...';
+                if (barFill) {
+                    barFill.style.width = '100%';
+                    barFill.classList.add('indeterminate');
+                }
+            }
         }
     }
 
@@ -1553,6 +1568,8 @@ export class CardCutterApp {
 
         if (countEl) countEl.textContent = `${current} / ${total}`;
         if (barFill) {
+            // Remove indeterminate state if it was set
+            barFill.classList.remove('indeterminate');
             const percentage = (current / total) * 100;
             barFill.style.width = `${percentage}%`;
         }
@@ -2217,18 +2234,33 @@ export class CardCutterApp {
         if (pendingCards > 0) {
             // Show progress bar when processing
             this.evidenceProgressBar.style.display = 'block';
-            const percentage = (completedCards / totalCards) * 100;
-            this.evidenceProgressFill.style.width = `${percentage}%`;
 
             // Update progress count text
             const countEl = document.getElementById('evidence-progress-count');
-            if (countEl) {
-                countEl.textContent = `${completedCards} / ${totalCards}`;
+
+            if (totalCards > 0) {
+                // Known total - show determinate progress
+                const percentage = (completedCards / totalCards) * 100;
+                this.evidenceProgressFill.style.width = `${percentage}%`;
+                this.evidenceProgressFill.classList.remove('indeterminate');
+
+                if (countEl) {
+                    countEl.textContent = `${completedCards} / ${totalCards}`;
+                }
+            } else {
+                // Unknown total (shouldn't happen, but handle it) - show indeterminate
+                this.evidenceProgressFill.style.width = '100%';
+                this.evidenceProgressFill.classList.add('indeterminate');
+
+                if (countEl) {
+                    countEl.textContent = 'Processing...';
+                }
             }
         } else {
             // Hide progress bar when no processing
             this.evidenceProgressBar.style.display = 'none';
             this.evidenceProgressFill.style.width = '0%';
+            this.evidenceProgressFill.classList.remove('indeterminate');
         }
     }
 

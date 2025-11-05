@@ -824,6 +824,26 @@ body.initial-mode .input-group {
     transition: width 0.3s ease;
 }
 
+/* Indeterminate progress bar animation */
+.processing-bar-fill.indeterminate,
+.evidence-progress-fill.indeterminate {
+    width: 30% !important;
+    animation: indeterminateProgress 1.5s ease-in-out infinite;
+    transition: none;
+}
+
+@keyframes indeterminateProgress {
+    0% {
+        transform: translateX(-100%);
+    }
+    50% {
+        transform: translateX(350%);
+    }
+    100% {
+        transform: translateX(-100%);
+    }
+}
+
 /* Import Icon Button (inside URL input) */
 .import-icon-btn {
     position: absolute;

@@ -37,9 +37,9 @@ ${content}
         const cardNodes = parseTagged(cardTagged, cardColor);
         allNodes.push(...cardNodes);
 
-        // Add spacing between cards (2 blank paragraphs)
+        // Add spacing between cards (3 blank paragraphs for extra spacing before next tagline)
         if (allNodes.length > 0) {
-            allNodes.push({kind: "text", runs: [{kind: "plain", text: "\n\n"}]});
+            allNodes.push({kind: "text", runs: [{kind: "plain", text: "\n\n\n"}]});
         }
     }
 

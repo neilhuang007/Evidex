@@ -42,7 +42,7 @@ export async function renderPdfBuffer(cards: any[]): Promise<Buffer> {
 
             for (const card of cards) {
                 if (!isFirstCard) {
-                    doc.moveDown(2);
+                    doc.moveDown(3);  // Add extra blank line before next tagline
                 }
                 isFirstCard = false;
 

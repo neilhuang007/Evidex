@@ -191,19 +191,16 @@ export class CardCutterApp {
             return;
         }
 
-        const url = this.urlInput.value.trim();
+        const urlInput = this.urlInput.value.trim();
         // Remove commas from tagline to prevent issues with custom ordering
         const claim = this.claimInput.value.trim().replace(/,/g, '');
 
-        // Add a pending spinner card in the left pane
-        const tempId = `c_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-        const wasEmpty = this.cards.length === 0;
-        const pendingCard = {id: tempId, tagline: claim, link: url, cite: '', content: '', pending: true};
-        this.cards.push(pendingCard);
-        this.persistCards();
-        this.renderCuts();
-        if (wasEmpty) this.switchToSplitLayout();
-        // Immediately clear inputs
+        // Parse multiple URLs (split by newlines, commas, or semicolons)
+        const urls = urlInput.split(/[\n,;]+/)
+            .map(u => u.trim())
+            .filter(u => u.length > 0);
+
+        // Clear inputs immediately
         this.urlInput.value = '';
         this.claimInput.value = '';
         this.validateInputs();
@@ -213,6 +210,25 @@ export class CardCutterApp {
             this.updateHintState(this.urlInput);
             this.updateHintState(this.claimInput);
         }, 0);
+
+        // If multiple URLs, use batch processing
+        if (urls.length > 1) {
+            const items = urls.map(url => ({tagline: claim, link: url}));
+            await this.importMultipleEvidence(items);
+            return;
+        }
+
+        // Single URL processing (original logic)
+        const url = urls[0];
+
+        // Add a pending spinner card in the left pane
+        const tempId = `c_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        const wasEmpty = this.cards.length === 0;
+        const pendingCard = {id: tempId, tagline: claim, link: url, cite: '', content: '', pending: true};
+        this.cards.push(pendingCard);
+        this.persistCards();
+        this.renderCuts();
+        if (wasEmpty) this.switchToSplitLayout();
 
         try {
             const response = await fetch(`${API_BASE}/api/cite`, {
@@ -909,6 +925,9 @@ export class CardCutterApp {
             // If returning user with existing cards, show split layout without animation
             this.switchToSplitLayout(false);
         }
+
+        // Auto-retry any pending cards that were interrupted by page refresh
+        this.retryPendingCards();
     }
 
     getMigrationVersion() {
@@ -1447,6 +1466,7 @@ export class CardCutterApp {
         this.showProgressIndicator(items.length);
 
         // Add all items as cards
+        const startIndex = this.cards.length;
         for (const item of items) {
             const tempId = `c_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
             const card = {
@@ -1467,13 +1487,12 @@ export class CardCutterApp {
             this.switchToSplitLayout();
         }
 
-        // Now process each card to get the actual evidence
-        for (let i = 0; i < items.length; i++) {
-            const item = items[i];
-            const cardIndex = this.cards.length - items.length + i;
+        // Track completed count for progress updates
+        let completedCount = 0;
 
-            // Update progress
-            this.updateProgressIndicator(i + 1, items.length);
+        // Process all cards in parallel
+        const promises = items.map(async (item, i) => {
+            const cardIndex = startIndex + i;
 
             try {
                 const response = await fetch(`${API_BASE}/api/cite`, {
@@ -1503,6 +1522,9 @@ export class CardCutterApp {
                             card.evaluationBreakdown = data.evaluation;
                         }
 
+                        // Update progress
+                        completedCount++;
+                        this.updateProgressIndicator(completedCount, items.length);
                         this.persistCards();
                         this.renderCuts();
                     }
@@ -1513,6 +1535,8 @@ export class CardCutterApp {
                         card.cite = 'Failed to fetch evidence';
                         card.content = '';
                         card.pending = false;
+                        completedCount++;
+                        this.updateProgressIndicator(completedCount, items.length);
                         this.persistCards();
                         this.renderCuts();
                     }
@@ -1524,19 +1548,105 @@ export class CardCutterApp {
                     card.cite = 'Error fetching evidence';
                     card.content = '';
                     card.pending = false;
+                    completedCount++;
+                    this.updateProgressIndicator(completedCount, items.length);
                     this.persistCards();
                     this.renderCuts();
                 }
             }
+        });
 
-            // Small delay between requests to avoid overwhelming the API
-            if (i < items.length - 1) {
-                await new Promise(resolve => setTimeout(resolve, 500));
-            }
-        }
+        // Wait for all requests to complete
+        await Promise.allSettled(promises);
 
         // Hide progress indicator
         this.hideProgressIndicator();
+    }
+
+    async retryPendingCards() {
+        // Find all cards that are still pending (likely from a page refresh during processing)
+        const pendingCards = this.cards.filter(c => c.pending === true);
+
+        if (pendingCards.length === 0) {
+            return; // Nothing to retry
+        }
+
+        console.log(`Found ${pendingCards.length} pending cards, retrying...`);
+
+        // Show progress indicator
+        this.showProgressIndicator(pendingCards.length);
+
+        // Track completed count for progress updates
+        let completedCount = 0;
+
+        // Process all pending cards in parallel
+        const promises = pendingCards.map(async (card) => {
+            try {
+                const response = await fetch(`${API_BASE}/api/cite`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        link: card.link,
+                        tagline: card.tagline
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+
+                    // Update the card with the response
+                    card.cite = data.cite || '';
+                    card.content = data.content || '';
+                    card.pending = false;
+
+                    // Add evaluation if included
+                    if (data.evaluation) {
+                        card.evaluationScore = data.evaluation.score;
+                        card.evaluationBreakdown = data.evaluation;
+                    } else {
+                        // Auto-evaluate if not included
+                        this.evaluateCard(card);
+                    }
+
+                    // Update progress
+                    completedCount++;
+                    this.updateProgressIndicator(completedCount, pendingCards.length);
+                    this.persistCards();
+                    this.renderCuts();
+                } else {
+                    // Mark as failed but keep the card
+                    card.cite = 'Failed to fetch evidence (retry)';
+                    card.content = '';
+                    card.pending = false;
+                    completedCount++;
+                    this.updateProgressIndicator(completedCount, pendingCards.length);
+                    this.persistCards();
+                    this.renderCuts();
+                }
+            } catch (error) {
+                console.error(`Failed to retry evidence for ${card.tagline}:`, error);
+                card.cite = 'Error fetching evidence (retry)';
+                card.content = '';
+                card.pending = false;
+                completedCount++;
+                this.updateProgressIndicator(completedCount, pendingCards.length);
+                this.persistCards();
+                this.renderCuts();
+            }
+        });
+
+        // Wait for all retries to complete
+        await Promise.allSettled(promises);
+
+        // Hide progress indicator
+        this.hideProgressIndicator();
+
+        // Show a toast notification that retries are complete
+        if (pendingCards.length > 0) {
+            this.showToast(`Resumed processing ${pendingCards.length} pending evidence`, 'success');
+        }
     }
 
     showProgressIndicator(total = null) {
@@ -2397,8 +2507,12 @@ export class CardCutterApp {
                 return `<p style="${contentParagraphStyle}">${lineHtml}</p>`;
             }).join('');
 
+            // Add blank line before the tagline (except for first card)
+            const spacerBeforeTagline = chunks.length > 0 ? `<p style="${spacerPStyle}"><br/></p>` : '';
+
             const cardHtml = `
             <div style="${cardContainerStyle}">
+                ${spacerBeforeTagline}
                 <p style="${taglinePStyle}">${taglineHtml}</p>
                 <p style="${linkPStyle}">${linkHtml}</p>
                 <p style="${spacerPStyle}"><br/></p>
@@ -2466,6 +2580,11 @@ export class CardCutterApp {
             // Step 7: Clean up extra whitespace and normalize line breaks
             content = content.replace(/\s+/g, ' ').trim();
             content = content.replace(/\n\s*\n/g, '\n'); // Remove excessive line breaks
+
+            // Add blank line before the tagline (except for first card)
+            if (lines.length > 0) {
+                lines.push('');
+            }
 
             lines.push(tagline);
             lines.push(link);

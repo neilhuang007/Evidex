@@ -1,5 +1,22 @@
 import type {VercelRequest, VercelResponse} from '@vercel/node';
 import {convertContentParts, generateWithRetry} from '../src/ai/gemini-wrapper';
+import * as path from 'path';
+import * as fs from 'fs';
+
+function loadPromptConfig() {
+    try {
+        const configPath = path.join(process.cwd(), 'config', 'prompts', 'evidence_extractor.json');
+        const configContent = fs.readFileSync(configPath, 'utf-8');
+        return JSON.parse(configContent);
+    } catch (error) {
+        console.error('[extract-evidence] Failed to load prompt config:', error);
+        // Fallback to hardcoded prompt if config file not found
+        return {
+            system: "You are an assistant researcher. Your task is to extract evidence from text and create concise taglines.",
+            instructions: "REQUIREMENTS:\n1. Extract all evidence pieces that include citations or source links\n2. For each piece of evidence, create a brief tagline that captures the overarching idea\n3. The tagline should be brief and does not have to form a perfect sentence\n4. The tagline should reflect the main concept, NOT simply restate the data or content\n5. Return results as a JSON array with format: [{\"tagline\": \"...\", \"link\": \"...\"}]\n\nReturn ONLY the JSON array, no additional text or formatting."
+        };
+    }
+}
 
 function coerceJson(text: string): any | null {
     if (!text) return null;
@@ -50,20 +67,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     try {
-        const systemPrompt = `You are an assistant researcher. Your task is to extract evidence from text and create concise taglines.
-
-REQUIREMENTS:
-1. Extract all evidence pieces that include citations or source links
-2. For each piece of evidence, create a brief tagline that captures the overarching idea
-3. The tagline should be brief and does not have to form a perfect sentence
-4. The tagline should reflect the main concept, NOT simply restate the data or content
-5. Return results as a JSON array with format: [{"tagline": "...", "link": "..."}]
-
-EXAMPLE:
-Input: "Member States are allowed to take unilateral measures and restrict this freedom on grounds of public policy according to https://example.com/eu-law"
-Output: [{"tagline": "EU allows member states to react in face to crisis", "link": "https://example.com/eu-law"}]
-
-Return ONLY the JSON array, no additional text or formatting.`;
+        // Load prompt configuration from JSON file
+        const promptConfig = loadPromptConfig();
+        const systemPrompt = `${promptConfig.system}\n\n${promptConfig.instructions}`;
 
         const userPrompt = `Extract evidence and create taglines from the following text:\n\n${text}`;
 

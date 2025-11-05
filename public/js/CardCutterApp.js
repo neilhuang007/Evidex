@@ -1290,27 +1290,31 @@ export class CardCutterApp {
             } else {
                 // Not structured format - use AI to extract evidence
                 this.showToast('Analyzing text with AI...', 'info');
-                submitBtn.disabled = true;
-                submitBtn.style.opacity = '0.6';
 
-                try {
-                    const extracted = await this.extractEvidenceWithAI(input);
-                    if (extracted && extracted.length > 0) {
-                        // Add all extracted items as cards
-                        // Modal will close automatically after progress completes
-                        await this.importMultipleEvidence(extracted);
+                // Clear input immediately to allow new submissions
+                textarea.value = '';
 
-                        this.showToast(`Successfully imported ${extracted.length} evidence item${extracted.length > 1 ? 's' : ''}`, 'success');
-                    } else {
-                        this.showToast('No evidence found in text', 'error');
+                // Run extraction and import in background (don't await)
+                (async () => {
+                    try {
+                        const extracted = await this.extractEvidenceWithAI(input);
+                        if (extracted && extracted.length > 0) {
+                            // Add all extracted items as cards
+                            // Import runs in background, allowing concurrent imports
+                            this.importMultipleEvidence(extracted).then(() => {
+                                this.showToast(`Successfully imported ${extracted.length} evidence item${extracted.length > 1 ? 's' : ''}`, 'success');
+                            }).catch(error => {
+                                console.error('Import error:', error);
+                                this.showToast('Some items failed to import', 'error');
+                            });
+                        } else {
+                            this.showToast('No evidence found in text', 'error');
+                        }
+                    } catch (error) {
+                        console.error('AI extraction error:', error);
+                        this.showToast('Failed to extract evidence. Please check format', 'error');
                     }
-                } catch (error) {
-                    console.error('AI extraction error:', error);
-                    this.showToast('Failed to extract evidence. Please check format', 'error');
-                } finally {
-                    submitBtn.disabled = false;
-                    submitBtn.style.opacity = '1';
-                }
+                })();
             }
         });
     }
@@ -1577,14 +1581,10 @@ export class CardCutterApp {
 
     hideProgressIndicator() {
         const indicator = document.getElementById('import-progress-indicator');
-        const modal = document.getElementById('import-source-modal');
         if (indicator) {
             setTimeout(() => {
                 indicator.style.display = 'none';
-                // Close modal after hiding progress
-                if (modal) {
-                    modal.classList.remove('show');
-                }
+                // Don't auto-close modal - allow users to import multiple sources concurrently
             }, 1000);
         }
     }

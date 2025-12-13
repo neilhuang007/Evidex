@@ -42,7 +42,7 @@ async function ensureFetch(): Promise<any> {
 async function callGemini(
   contents: Content[],
   systemPrompt: string,
-  thinkingBudget: number,
+  thinkingLevel: 'low' | 'high' | null,
   model: string,
   apiKey?: string
 ): Promise<string> {
@@ -52,8 +52,8 @@ async function callGemini(
   const url = `${GEMINI_API_BASE}/${model}:generateContent?key=${encodeURIComponent(key)}`;
   const body: any = { contents, generationConfig: {} };
   if (systemPrompt) body.systemInstruction = { parts: [{ text: systemPrompt }] };
-  if (typeof thinkingBudget === 'number' && thinkingBudget >= 0) {
-    body.generationConfig.thinkingConfig = { thinkingBudget };
+  if (thinkingLevel) {
+    body.generationConfig.thinkingConfig = {thinkingLevel};
   }
 
   // Debug logging
@@ -66,7 +66,7 @@ async function callGemini(
   // eslint-disable-next-line no-console
   console.log('Contents:', JSON.stringify(contents, null, 2));
   // eslint-disable-next-line no-console
-  console.log('Thinking Budget:', thinkingBudget);
+  console.log('Thinking Level:', thinkingLevel);
   // eslint-disable-next-line no-console
   console.log('========================');
 
@@ -88,15 +88,15 @@ async function callGemini(
 export async function generateWithRetry(
   contents: Content[],
   systemPrompt: string,
-  thinkingBudget = -1,
-  model = 'gemini-2.5-pro',
+  thinkingLevel: 'low' | 'high' | null = null,
+  model = 'gemini-3-pro-preview',
   retries = 3,
   apiKey?: string
 ): Promise<string> {
   let lastErr: any;
   for (let attempt = 0; attempt < retries; attempt++) {
     try {
-      return await callGemini(contents, systemPrompt, thinkingBudget, model, apiKey);
+      return await callGemini(contents, systemPrompt, thinkingLevel, model, apiKey);
     } catch (err) {
       lastErr = err;
       await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));

@@ -75,7 +75,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const userText = `tagline: ${tagline}\ncite: ${cite}\ncontent: ${content}\nlink: ${link}`;
         const contents = convertContentParts([{text: userText}]);
 
-        const raw = await generateWithRetry(contents, systemPrompt, -1, 'gemini-2.5-pro', 2, GEMINI_API_KEY);
+        const raw = await generateWithRetry(contents, systemPrompt, null, 'gemini-3-pro-preview', 2, GEMINI_API_KEY);
         const parsed = coerceJson(raw);
 
         if (!parsed ||

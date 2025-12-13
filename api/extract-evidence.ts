@@ -77,8 +77,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const aiResponse = await generateWithRetry(
             contents,
             systemPrompt,
-            -1, // no thinking budget needed for this task
-            'gemini-2.5-flash', // use flash for speed
+            null, // thinkingLevel: null disables thinking for faster responses
+            'gemini-3-pro-preview', // Gemini 3 Pro (no Flash variant available yet)
             3,
             apiKey
         );

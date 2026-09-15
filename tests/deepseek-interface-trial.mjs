@@ -130,4 +130,3 @@ const summaries = ['markdown', 'offsets'].map((kind) => {
 });
 
 process.stdout.write(`${JSON.stringify({summaries, results}, null, 2)}\n`);
-

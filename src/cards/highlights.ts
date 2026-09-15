@@ -144,4 +144,3 @@ export function assertGroundedExcerpt(excerpt: string, sourceText: string): void
     throw new HighlightValidationError('The evidence excerpt is not an exact contiguous quote from the supplied source');
   }
 }
-

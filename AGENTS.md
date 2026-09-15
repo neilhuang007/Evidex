@@ -1,7 +1,7 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-- `src/server.ts` runs the Express API, orchestrating Gemini calls via `src/ai/gemini-wrapper.ts` and Word export routines in `src/exporters/wordHandler.ts`.
+- `src/server.ts` runs the Express API, orchestrating DeepSeek calls via `src/ai/deepseek-wrapper.ts` and source retrieval via `src/cards/source-fetcher.ts` and Word export routines in `src/exporters/wordHandler.ts`.
 - `api/` contains Vercel serverless handlers (`cite.ts`, `download-docx*.ts`, `health.ts`) that mirror the Express endpoints for deployment.
 - `public/` holds the browser client (`index.html`, `app.js`, `styles.css`); client assets are served directly by Express without bundling.
 - `config/` stores prompt and export templates (`prompts/card_cutter.json`, `export/word.json`); keep edits versioned and review diffs carefully.
@@ -31,8 +31,8 @@ curl -X POST http://localhost:3000/api/cite -H "Content-Type: application/json" 
 ## Commit & Pull Request Guidelines
 - Recent history favors `type. concise summary` prefixes (e.g., `ft. refine manual highlighting`); match that style and keep subject lines under 72 characters.
 - Write descriptive bodies listing user-visible changes and verification steps.
-- Pull requests should link related issues, describe required env vars (`GEMINI_API_KEY`), and include screenshots or sample exports for UI or document changes.
+- Pull requests should link related issues, describe required env vars (`DEEPSEEK_API_KEY` (or `DS_API_KEY`)), and include screenshots or sample exports for UI or document changes.
 
 ## Configuration & Secrets
-- Set `GEMINI_API_KEY` in your environment before hitting `/api/cite`; never commit secrets or `.env` files.
+- Set `DEEPSEEK_API_KEY` (or `DS_API_KEY`) in your environment before hitting `/api/cite`; never commit secrets or `.env` files.
 - Review changes to `config/prompts` and `config/export` in PRs, since they directly affect model output and document formatting.

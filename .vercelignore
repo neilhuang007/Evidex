@@ -1,0 +1,10 @@
+.env*
+.idea/
+.git/
+dist/
+tests/
+scripts/
+examples/
+*.pdf
+evidences.json
+public/*.bak

@@ -1,481 +1,121 @@
 # Evidex
 
-A web application for generating debate cards by extracting and formatting evidence from web sources using the Google Gemini API.
+Create debate cards from source text, choose highlighted passages, and export Word or PDF documents. The browser stores your cards locally; model calls run on the server.
 
-## Overview
+Live site: https://ev1dex.com
 
-Evidex streamlines the research process by automatically extracting relevant evidence from web sources and formatting it into properly structured debate cards. The application leverages AI to identify supporting evidence for specific taglines and exports them in standard debate formats.
+## Run locally
 
-## Features
+Requires Node.js 22 and a DeepSeek API key.
 
-- **Automated Evidence Extraction** - Extract relevant quotes from web sources based on taglines
-- **AI-Powered Analysis** - Uses Google Gemini API for intelligent content analysis
-- **Multiple Export Formats** - Generate single or bulk Word documents with proper formatting
-- **Custom Highlighting** - Preserve important text highlighting in exported documents
-- **Serverless Architecture** - Deployed on Vercel for scalability and performance
-
-## Quick Start
-
-### Prerequisites
-
-- Node.js 16.x or higher
-- npm or yarn package manager
-- Google Gemini API key
-
-### Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/evidex.git
-cd evidex
-
-# Install dependencies
+```sh
 npm install
-
-# Build the project
 npm run build
-
-# Start development server
 npm run dev
 ```
 
-### Environment Setup
+Open http://localhost:3000. `npm run dev` runs the compiled server; rebuild after TypeScript changes.
 
-Create a `.env` file in the root directory:
+Set `DEEPSEEK_API_KEY` in your environment or an ignored `.env` file. The existing `DS_API_KEY` environment variable is also supported. See [.env.example](.env.example) for settings. Never put provider keys in browser JavaScript, HTML, or a client build variable.
 
-```env
-GEMINI_API_KEY=your_gemini_api_key_here
-```
+## Cut cards with an AI agent
 
-## Project Structure
+The authenticated `POST /api/cards` endpoint accepts either a source URL or supplied source text. It can ask DeepSeek to select a passage, or validate a finished card submitted by another agent without making a model call.
 
-```
-evidex/
-├── src/
-│   ├── ai/                 # AI integration modules
-│   ├── exporters/          # Document export handlers
-│   ├── server.ts           # Express server for local development
-│   └── types/              # TypeScript type definitions
-├── api/                    # Vercel serverless functions
-├── public/                 # Static frontend assets
-├── config/
-│   └── prompts/           # AI prompt configurations
-├── dist/                   # Compiled TypeScript output
-└── vercel.json            # Vercel deployment configuration
-```
+Use `**bold text**` to mark the words to highlight:
 
-## API Documentation
-
-For complete API documentation including request/response formats, examples, and workflows, see **[API.md](API.md)**.
-
-### Quick Overview
-
-| Endpoint                  | Method | Description                                               |
-|---------------------------|--------|-----------------------------------------------------------|
-| `/api/cite`               | POST   | Extract evidence from webpage with credibility evaluation |
-| `/api/download-docx`      | POST   | Generate single debate card Word document                 |
-| `/api/download-docx-bulk` | POST   | Generate multi-card Word document                         |
-| `/api/health`             | GET    | Health check endpoint                                     |
-
-### Key Features
-
-- **AI-Powered Evidence Extraction** - Automatically identifies relevant quotes from sources
-- **Credibility Evaluation** - Assesses source quality and evidence strength
-- **Highlight Preservation** - Maintains `<HL>` tag formatting in exports
-- **Custom Styling** - Configurable highlight colors per card
-- **Vercel Compatible** - Works seamlessly with serverless deployments
-- **Self-Hosting Support** - Can be deployed on any Node.js server
-
-**Full documentation:** [API.md](API.md)
-
-## External Service Integration
-
-Yes! External services and applications can call the Evidex API at **`https://ev1dex.com`** to programmatically extract
-evidence and generate documents.
-
-### Example: Python Script
-
-```python
-import requests
-
-API_BASE = "https://ev1dex.com"
-
-# Extract evidence from a source
-response = requests.post(
-    f"{API_BASE}/api/cite",
-    json={
-        "tagline": "Renewable energy costs have decreased significantly",
-        "link": "https://www.iea.org/reports/renewable-power",
-        "includeEvaluation": True
-    },
-    timeout=60
-)
-
-data = response.json()
-
-if data["status"] == "success":
-    print(f"Citation: {data['cite']}")
-    print(f"Quality Score: {data['evaluation']['score']}/10")
-    print(f"Content: {data['content'][:200]}...")
-
-    # Generate Word document
-    doc_response = requests.post(
-        f"{API_BASE}/api/download-docx",
-        json={
-            "tagline": "Renewable energy costs have decreased significantly",
-            "link": "https://www.iea.org/reports/renewable-power",
-            "cite": data["cite"],
-            "content": data["content"],
-            "highlightColor": "#FFFF00"
-        }
-    )
-
-    # Save the document
-    with open("evidence_card.docx", "wb") as f:
-        f.write(doc_response.content)
-
-    print("✓ Document saved as evidence_card.docx")
-```
-
-### Example: JavaScript/Node.js
-
-```javascript
-const fetch = require('node-fetch');
-const fs = require('fs').promises;
-
-const API_BASE = 'https://ev1dex.com';
-
-async function extractEvidence() {
-    // Extract evidence
-    const response = await fetch(`${API_BASE}/api/cite`, {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-            tagline: 'AI improves medical diagnosis accuracy',
-            link: 'https://www.nature.com/articles/ai-diagnostics',
-            includeEvaluation: true
-        })
-    });
-
-    const data = await response.json();
-
-    if (data.status === 'success') {
-        console.log(`Citation: ${data.cite}`);
-        console.log(`Quality Score: ${data.evaluation.score}/10`);
-
-        // Generate Word document
-        const docResponse = await fetch(`${API_BASE}/api/download-docx`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                tagline: 'AI improves medical diagnosis accuracy',
-                link: 'https://www.nature.com/articles/ai-diagnostics',
-                cite: data.cite,
-                content: data.content,
-                highlightColor: '#00FFFF'
-            })
-        });
-
-        const buffer = await docResponse.buffer();
-        await fs.writeFile('evidence_card.docx', buffer);
-
-        console.log('✓ Document saved as evidence_card.docx');
-    }
+```json
+{
+  "tagline": "A sample claim",
+  "link": "https://example.com/source",
+  "citation": "Example Author, 2026, Example Source",
+  "sourceText": "The study found a measurable improvement in outcomes.",
+  "markdownContent": "The study found a **measurable improvement** in outcomes."
 }
-
-extractEvidence();
 ```
 
-### Example: cURL
+Send `Authorization: Bearer <EVIDEX_AGENT_API_TOKEN>`. This token belongs to Evidex and is separate from the provider key. The server checks that the passage appears in the supplied source, converts highlights to canonical `<HL>` tags, and returns a card ready for import or export. The token grants shared API access; it is not a user account or access to your browser's saved cards.
 
-```bash
-# Extract evidence
-curl -X POST https://ev1dex.com/api/cite \
-  -H "Content-Type: application/json" \
-  -d '{
-    "tagline": "Climate change impacts are accelerating",
-    "link": "https://www.ipcc.ch/report/ar6/wg1/",
-    "includeEvaluation": true
-  }' \
-  | jq '.'
+For autonomous workflows:
 
-# Download Word document
-curl -X POST https://ev1dex.com/api/download-docx \
-  -H "Content-Type: application/json" \
-  -d '{
-    "tagline": "Climate change impacts are accelerating",
-    "link": "https://www.ipcc.ch/report/ar6/wg1/",
-    "cite": "IPCC, 2021 (AR6 Climate Change Report)",
-    "content": "Global surface temperature has increased by <HL>1.1°C since pre-industrial times</HL>.",
-    "highlightColor": "#FFFF00"
-  }' \
-  --output evidence_card.docx
+1. Research a source and keep its exact text and citation.
+2. Select a passage and mark the spoken words with `**...**`.
+3. Submit it to `/api/cards` for validation, or omit `markdownContent` to let DeepSeek select it.
+4. Send the returned card to `/api/download-docx`, or collect cards for the bulk Word/PDF endpoints.
+5. Paste the returned card JSON into **Import Sources** to edit it in the browser.
+
+See [API.md](API.md) for the complete contract, authentication, limits, and errors.
+Agents can also load the [OpenAPI specification](https://ev1dex.com/openapi.json).
+For DeepSeek tool calling, use the [single-function definition](https://ev1dex.com/agent-tool.json). A small [interface trial](tests/deepseek-interface-trial.md) favored Markdown over asking the model to calculate offsets.
+
+A runnable example loads your local token and returns importable JSON:
+
+```sh
+node examples/cut-card.mjs examples/agent-card.json example.docx
 ```
 
-### Batch Processing Example
+## Model choice
 
-Process multiple sources and generate a single document:
+The default is `deepseek-flash`, configured through `DEEPSEEK_MODEL`. This is the current model name confirmed by the provider's models endpoint on September 15, 2026. DeepSeek generation runs only on the server and returns usage metadata so actual costs can be measured. [DeepSeek changelog](https://api-docs.deepseek.com/updates/).
 
-```python
-import requests
+There is no card-cutting evaluation here that proves one provider is best. DeepSeek is a reasonable default with the existing key; source validation matters more than the model's ability to emit formatting. External agents can use Luna, Terra, or Sol and submit finished Markdown without paying for a second generation.
 
-API_BASE = "https://ev1dex.com"
+Illustrative cost for **5,000 input + 1,000 output tokens**, excluding extra reasoning, tools, retries, and caching:
 
-sources = [
-    {"tagline": "AI improves productivity", "url": "https://example.com/ai-study"},
-    {"tagline": "Remote work increases satisfaction", "url": "https://example.com/remote"},
-    {"tagline": "Clean energy creates jobs", "url": "https://example.com/energy"}
-]
+| Model | Cost per call |
+| --- | ---: |
+| DeepSeek Flash | $0.00135–$0.00270 (off-peak/peak) |
+| GPT-5.6 Luna | $0.0022 |
+| GPT-5.6 Terra | $0.022 |
+| GPT-5.6 Sol | $0.040 |
 
-# Step 1: Extract evidence from all sources
-cards = []
-for source in sources:
-    response = requests.post(
-        f"{API_BASE}/api/cite",
-        json={"tagline": source["tagline"], "link": source["url"]},
-        timeout=60
-    )
-    data = response.json()
+These are estimates from published text-token prices, not measured Evidex usage. For low-volume work, Sol can be affordable; evaluate passage quality on your own sources before deciding. [DeepSeek pricing](https://api-docs.deepseek.com/quick_start/pricing/), [Luna pricing](https://developers.openai.com/api/docs/models/gpt-5.6-luna), [Terra and Sol pricing](https://developers.openai.com/api/docs/models/compare).
 
-    if data["status"] == "success":
-        cards.append({
-            "tagline": source["tagline"],
-            "link": source["url"],
-            "cite": data["cite"],
-            "content": data["content"]
-        })
+## Development and verification
 
-# Step 2: Generate single document with all cards
-doc_response = requests.post(
-    f"{API_BASE}/api/download-docx-bulk",
-    json={"cards": cards}
-)
+| Command | Purpose |
+| --- | --- |
+| `npm run build` | Compile the Express server and shared modules |
+| `npm run check` | Type-check both Express and Vercel handlers |
+| `npm run dev` | Run the compiled server on port 3000 |
+| `npm run start` | Build, then run |
 
-with open("all_evidence.docx", "wb") as f:
-    f.write(doc_response.content)
+Browser regressions live in `tests/browser`; backend regressions live in `tests`. Test scripts describe their prerequisites and can run without live model charges unless explicitly marked live.
 
-print(f"✓ Generated document with {len(cards)} cards")
-```
+## Structure
 
-### Use Cases for External Integration
-
-- **Research Automation Tools** - Integrate into existing research workflows
-- **Browser Extensions** - Create Chrome/Firefox extensions that use Evidex
-- **Slack/Discord Bots** - Build bots that fetch evidence on command
-- **CI/CD Pipelines** - Automate evidence gathering in build processes
-- **Custom Dashboards** - Embed evidence extraction in research platforms
-- **Mobile Apps** - Call the API from iOS/Android applications
-- **Zapier/IFTTT** - Create automation workflows with no-code tools
-
-### API Access
-
-- **Base URL:** `https://ev1dex.com`
-- **Authentication:** None required (server-side API key handled internally)
-- **Rate Limits:** Reasonable use expected; contact for high-volume usage
-- **Response Time:** Evidence extraction typically takes 5-15 seconds
-- **CORS:** Enabled for web browser requests
-
-**Complete API documentation:** [API.md](API.md)
-
-## Development
-
-### Build Commands
-
-| Command | Description |
-|---------|-------------|
-| `npm install` | Install project dependencies |
-| `npm run build` | Compile TypeScript to JavaScript |
-| `npm run dev` | Start development server with hot reload |
-| `npm run start` | Build and run production server |
-
-### Technology Stack
-
-| Component | Technology |
-|-----------|------------|
-| **Runtime** | Node.js |
-| **Language** | TypeScript |
-| **AI Service** | Google Gemini API |
-| **Deployment** | Vercel Serverless |
-| **Document Processing** | docx library |
-| **Frontend** | HTML/CSS/JavaScript |
-
-## Configuration
-
-<details>
-<summary><b>TypeScript Configuration</b></summary>
-
-The project uses TypeScript with the following key settings:
-
-- **Target**: ES2020
-- **Module**: CommonJS
-- **Output Directory**: `dist/`
-- **Source Directory**: `src/`
-- **Strict Mode**: Enabled
-
-Configuration file: `tsconfig.json`
-</details>
-
-<details>
-<summary><b>AI Prompt Configuration</b></summary>
-
-Custom prompts for the Gemini API are stored in `config/prompts/card_cutter.json`. This includes:
-
-- System prompt for evidence extraction
-- Few-shot examples for better accuracy
-- Custom formatting instructions
-
-</details>
-
-<details>
-<summary><b>Vercel Deployment</b></summary>
-
-Deployment configuration is managed through `vercel.json`:
-
-- Serverless functions in `/api` directory
-- Static asset serving from `/public`
-- Custom routing rules
-- Environment variable management
-
-</details>
+- `src/ai/`: server-only model integration.
+- `src/cards/`: source retrieval, card generation, and validation shared by both backends.
+- `src/server.ts`: Express routes and static client serving.
+- `api/`: Vercel serverless routes.
+- `public/js/`: card editor, import flow, highlighting, and tutorials.
+- `src/exporters/`: Word and PDF generation.
+- `dist/`: generated TypeScript output; do not edit manually.
 
 ## Deployment
 
-### Vercel Deployment
+The existing Vercel project is `evidex`. Set encrypted `DEEPSEEK_API_KEY` and `EVIDEX_AGENT_API_TOKEN` environment variables in the target environment, run the checks, and deploy:
 
-1. Install Vercel CLI:
-```bash
-npm i -g vercel
+```sh
+vercel --prod
 ```
 
-2. Deploy to Vercel:
-```bash
-vercel
-```
+`vercel.json` declares function time limits and static routing. `.vercelignore` excludes local secrets, IDE files, test artifacts, and backups. Changes to environment variables require a new deployment.
 
-3. Set environment variables in Vercel dashboard:
-   - Navigate to Project Settings > Environment Variables
-   - Add `GEMINI_API_KEY` with your API key
+The public website has no user accounts. Browser API restrictions and per-instance throttles do not establish user identity or a global spending quota; use hosting/provider spend controls for a strict budget. `/api/cards` requires its own server-configured bearer token.
 
-### Self-Hosting
-
-For self-hosting, you can run the Express server:
-
-```bash
-# Build the project
-npm run build
-
-# Set environment variables
-export GEMINI_API_KEY=your_key_here
-
-# Start the server
-npm run start
-```
-
-The server will run on `http://localhost:3000` by default.
-
-## Architecture Details
-
-<details>
-<summary><b>AI Integration Layer</b></summary>
-
-The AI integration (`src/ai/gemini-wrapper.ts`) provides:
-
-- Minimal Gemini API wrapper without SDK dependencies
-- Automatic retry logic for failed requests
-- Environment-agnostic design (works in browser and Node.js)
-- Efficient token usage optimization
-
-</details>
-
-<details>
-<summary><b>Document Export System</b></summary>
-
-The document handler (`src/exporters/wordHandler.ts`) features:
-
-- Custom tagged format parser
-- Support for TAGLINE, CITE, LINK tags
-- Highlighting preservation with `<HL>` tags
-- Formatted Word document generation
-- Bulk export capabilities
-
-</details>
-
-<details>
-<summary><b>Serverless Architecture</b></summary>
-
-Benefits of the serverless approach:
-
-- Auto-scaling based on demand
-- No server maintenance required
-- Cost-effective for variable workloads
-- Global CDN distribution
-- Zero-downtime deployments
-
-</details>
-
-## Contributing
-
-Contributions are welcome! Please follow these steps:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-### Code Style Guidelines
-
-- Use TypeScript for all new code
-- Follow existing code formatting patterns
-- Add appropriate type definitions
-- Include comments for complex logic
-- Write unit tests for new features
+For the optional Express deployment, use the same server environment variables and `npm run start`. Bind a reverse proxy to the local service. Follow the repository's deployment instructions for GitHub and SSH, and retain the server's Cloudflare origin restrictions.
 
 ## Troubleshooting
 
-<details>
-<summary><b>Common Issues</b></summary>
+- **Model configuration error:** check `DEEPSEEK_API_KEY` or `DS_API_KEY` on the backend, then redeploy/restart.
+- **Source cannot be fetched:** paste the source text through the API. Paywalls, bot protection, PDFs, and JavaScript-only pages may need extraction by your research agent first.
+- **Passage validation fails:** use exact source wording and balanced `**...**`; paraphrases are not evidence quotations.
+- **Agent request rejected:** check `EVIDEX_AGENT_API_TOKEN`, distinct from the DeepSeek key.
+- **Type errors:** run `npm install`, `npm run check`, and `npm run build`.
 
-### Build Errors
+## License and support
 
-If you encounter TypeScript compilation errors:
-```bash
-# Clean build directory
-rm -rf dist/
-# Reinstall dependencies
-npm ci
-# Rebuild
-npm run build
-```
+This project is licensed under the GNU General Public License; see [LICENSE](LICENSE). The repository also states that this software cannot be used or redistributed for business purposes.
 
-### API Key Issues
-
-Ensure your Gemini API key:
-- Is valid and active
-- Has appropriate permissions
-- Is correctly set in environment variables
-
-### Deployment Issues
-
-For Vercel deployment problems:
-- Check `vercel.json` configuration
-- Verify environment variables are set in Vercel dashboard
-- Review function logs in Vercel dashboard
-
-</details>
-
-## License
-
-This project is licensed under the GNU General Public License - see the [LICENSE](LICENSE) file for details.
-
-**Important**: This software cannot be used or redistributed for business purposes.
-
-## Support
-
-For issues, questions, or suggestions, please open an issue on the GitHub repository.
-
-## Acknowledgments
-
-- Google Gemini API for AI capabilities
-- Vercel for hosting infrastructure
-- The debate community for feedback and testing
+Report issues on the GitHub repository. Thanks to the debate community for feedback and testing, DeepSeek for model access, and Vercel for hosting.

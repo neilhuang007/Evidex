@@ -1,11 +1,13 @@
 // CardCutterApp.js - Main application class
 
-import {API_BASE, hexToRgba} from './utils.js';
+import {API_BASE, hexToRgba, normalizeHighlightMarkup} from './utils.js';
 import {DynamicOrbs} from './DynamicOrbs.js';
 
 export class CardCutterApp {
     constructor() {
         this.urlInput = document.getElementById('url-input');
+        this.sourceTextInput = document.getElementById('source-text-input');
+        this.sourceTextDetails = document.getElementById('source-text-details');
         this.claimInput = document.getElementById('claim-input');
         this.cutButton = document.getElementById('cut-button');
         this.initialExtra = document.getElementById('initial-extra');
@@ -54,6 +56,11 @@ export class CardCutterApp {
             this.updateHintState(this.urlInput);
             this.maybeRevealInitialExtra();
         });
+        this.sourceTextInput?.addEventListener('input', () => {
+            this.validateInputs();
+            this.updateHintState(this.sourceTextInput);
+            this.maybeRevealInitialExtra();
+        });
         this.claimInput.addEventListener('input', () => {
             this.validateInputs();
             this.updateHintState(this.claimInput);
@@ -89,8 +96,9 @@ export class CardCutterApp {
     maybeRevealInitialExtra() {
         if (!this.initialMode || !this.initialExtra) return;
         const urlValue = (this.urlInput?.value || '').trim();
+        const sourceText = (this.sourceTextInput?.value || '').trim();
         // Expand on any non-empty input (no strict URL check for reveal)
-        const shouldExpand = urlValue.length > 0;
+        const shouldExpand = urlValue.length > 0 || sourceText.length > 0;
         if (shouldExpand) {
             if (!this.initialExtra.classList.contains('expanded')) {
                 this.initialExtra.classList.add('expanded');
@@ -109,7 +117,7 @@ export class CardCutterApp {
     }
 
     addInputAnimations() {
-        const inputs = [this.urlInput, this.claimInput];
+        const inputs = [this.urlInput, this.claimInput, this.sourceTextInput].filter(Boolean);
         inputs.forEach(input => {
             input.addEventListener('focus', (e) => {
                 e.target.parentElement.style.transform = 'scale(1.02)';
@@ -161,9 +169,13 @@ export class CardCutterApp {
 
     validateInputs() {
         const urlValue = this.urlInput.value.trim();
+        const sourceText = (this.sourceTextInput?.value || '').trim();
         const claimValue = this.claimInput.value.trim();
+        const urls = this.parseSourceUrls(urlValue);
+        const urlsAreValid = urls.length > 0 && urls.every(url => this.isValidUrl(url));
+        const urlFieldIsValid = !urlValue || urlsAreValid;
 
-        const isValid = urlValue && claimValue && this.isValidUrl(urlValue);
+        const isValid = Boolean(claimValue && urlFieldIsValid && (urlsAreValid || sourceText));
 
         if (isValid) {
             this.cutButton.style.opacity = '1';
@@ -176,10 +188,16 @@ export class CardCutterApp {
         return isValid;
     }
 
+    parseSourceUrls(value) {
+        return String(value || '').split(/[\n,;]+/)
+            .map(url => url.trim())
+            .filter(Boolean);
+    }
+
     isValidUrl(string) {
         try {
-            new URL(string);
-            return true;
+            const url = new URL(string);
+            return url.protocol === 'http:' || url.protocol === 'https:';
         } catch (_) {
             return false;
         }
@@ -187,44 +205,46 @@ export class CardCutterApp {
 
     async handleCutCards() {
         if (!this.validateInputs()) {
-            this.showToast('Please enter a valid URL and claim', 'error');
+            this.showToast('Enter a claim and either a valid URL or pasted article text', 'error');
             return;
         }
 
         const urlInput = this.urlInput.value.trim();
+        const sourceText = (this.sourceTextInput?.value || '').trim();
         // Remove commas from tagline to prevent issues with custom ordering
         const claim = this.claimInput.value.trim().replace(/,/g, '');
 
         // Parse multiple URLs (split by newlines, commas, or semicolons)
-        const urls = urlInput.split(/[\n,;]+/)
-            .map(u => u.trim())
-            .filter(u => u.length > 0);
+        const urls = this.parseSourceUrls(urlInput);
 
-        // Clear inputs immediately
-        this.urlInput.value = '';
-        this.claimInput.value = '';
-        this.validateInputs();
-
-        // Update hint states after clearing - use setTimeout to ensure DOM updates
-        setTimeout(() => {
-            this.updateHintState(this.urlInput);
-            this.updateHintState(this.claimInput);
-        }, 0);
+        if (sourceText && urls.length > 1) {
+            this.showToast('Pasted article text can be used with one URL at a time', 'error');
+            return;
+        }
 
         // If multiple URLs, use batch processing
         if (urls.length > 1) {
             const items = urls.map(url => ({tagline: claim, link: url}));
-            await this.importMultipleEvidence(items);
+            const result = await this.importMultipleEvidence(items);
+            if (result.successful > 0) this.clearSourceForm();
             return;
         }
 
         // Single URL processing (original logic)
-        const url = urls[0];
+        const url = urls[0] || '';
 
         // Add a pending spinner card in the left pane
         const tempId = `c_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
         const wasEmpty = this.cards.length === 0;
-        const pendingCard = {id: tempId, tagline: claim, link: url, cite: '', content: '', pending: true};
+        const pendingCard = {
+            id: tempId,
+            tagline: claim,
+            link: url,
+            cite: '',
+            content: '',
+            pending: true,
+            ...(sourceText ? {sourceText} : {})
+        };
         this.cards.push(pendingCard);
         this.persistCards();
         this.renderCuts();
@@ -236,7 +256,7 @@ export class CardCutterApp {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({link: url, tagline: claim})
+                body: JSON.stringify({link: url, tagline: claim, sourceText: sourceText || undefined})
             });
 
             let data;
@@ -246,7 +266,7 @@ export class CardCutterApp {
                 throw new Error(`HTTP ${response.status} (invalid JSON)`);
             }
             if (!response.ok) {
-                const msg = (data && (data.error || data.detail)) ? `${data.error || data.detail}` : `HTTP error! status: ${response.status}`;
+                const msg = this.getApiErrorMessage(data, `HTTP error! status: ${response.status}`);
                 throw new Error(msg);
             }
 
@@ -257,13 +277,11 @@ export class CardCutterApp {
                 this.cards = this.cards.filter(c => c.id !== tempId);
                 this.persistCards();
                 this.renderCuts();
+                if (!sourceText) this.revealSourceTextInput();
                 return;
             }
-            // Clean and balance content before storing to ensure consistency
-            // Strip ALL newlines - content should be single line with <HL> tags only
             const rawContent = data.content || '';
-            const contentNoNewlines = rawContent.replace(/\r?\n/g, ' ');
-            const cleanedContent = this.cleanupStoredHighlightTags(contentNoNewlines);
+            const cleanedContent = normalizeHighlightMarkup(rawContent);
 
             const card = {
                 id: tempId,
@@ -289,6 +307,7 @@ export class CardCutterApp {
             if (idx >= 0) this.cards[idx] = card; else this.cards.push(card);
             this.persistCards();
             this.renderCuts();
+            this.clearSourceForm();
             this.showToast('Card added to memory', 'success');
 
             // Auto-evaluate the newly added card only if evaluation wasn't included
@@ -297,12 +316,41 @@ export class CardCutterApp {
             }
         } catch (error) {
             console.error('Error cutting cards:', error);
-            this.showToast('Failed to process the document. Please try again.', 'error');
+            if (!sourceText) {
+                this.revealSourceTextInput();
+                this.showToast('Could not fetch that page. Paste the article text and try again.', 'error');
+            } else {
+                this.showToast(error?.message || 'Failed to process the document. Please try again.', 'error');
+            }
             // Remove pending card on error
             this.cards = this.cards.filter(c => c.id !== tempId);
             this.persistCards();
             this.renderCuts();
         }
+    }
+
+    getApiErrorMessage(data, fallback) {
+        if (typeof data?.error === 'string') return data.error;
+        if (typeof data?.error?.message === 'string') return data.error.message;
+        if (typeof data?.detail === 'string') return data.detail;
+        return fallback;
+    }
+
+    revealSourceTextInput() {
+        if (this.sourceTextDetails) {
+            this.sourceTextDetails.open = true;
+            this.sourceTextDetails.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+        }
+        this.sourceTextInput?.focus({preventScroll: true});
+    }
+
+    clearSourceForm() {
+        this.urlInput.value = '';
+        this.claimInput.value = '';
+        if (this.sourceTextInput) this.sourceTextInput.value = '';
+        this.validateInputs();
+        [this.urlInput, this.claimInput, this.sourceTextInput].filter(Boolean)
+            .forEach(input => this.updateHintState(input));
     }
 
     switchToSplitLayout(animated = true) {
@@ -466,13 +514,6 @@ export class CardCutterApp {
         // No blind/overlay; immediately perform the split and let elements animate
         performSplit();
 
-        // Start onboarding tutorial after layout transition if user hasn't seen it
-        if (window.onboarding) {
-            // Delay to allow animation to complete
-            setTimeout(() => {
-                window.onboarding.init();
-            }, animated ? 1200 : 100);
-        }
     }
 
     // Render the left panel groups, grouped by tagline
@@ -721,15 +762,8 @@ export class CardCutterApp {
                     const colorOpacity = 0.3; // Adjust opacity for readability
                     const rgbaColor = hexToRgba(selectedColor, colorOpacity);
 
-                    // Content should already be cleaned and balanced when stored
-                    // No need to apply balanceHLTags() at render time
                     const content = c.content || '';
-
-                    // Convert <HL> tags to spans
-                    let highlighted = content.replace(/<HL>/g, `<span class="highlight" style="background: linear-gradient(180deg, transparent 50%, ${rgbaColor} 50%)">`);
-                    highlighted = highlighted.replace(/<\/HL>/g, '</span>');
-
-                    para.innerHTML = highlighted;
+                    this.renderHighlightedContent(para, content, rgbaColor);
                     // Add click handler for editing
                     para.addEventListener('click', (e) => {
                         e.stopPropagation();
@@ -777,6 +811,35 @@ export class CardCutterApp {
 
             target.appendChild(groupEl);
         });
+    }
+
+    renderHighlightedContent(element, value, rgbaColor) {
+        const content = normalizeHighlightMarkup(value);
+        const fragment = document.createDocumentFragment();
+        const tagPattern = /<HL>([\s\S]*?)<\/HL>/g;
+        let cursor = 0;
+        let match;
+
+        const appendText = (parent, text) => {
+            const lines = String(text).split('\n');
+            lines.forEach((line, index) => {
+                if (index > 0) parent.appendChild(document.createElement('br'));
+                if (line) parent.appendChild(document.createTextNode(line));
+            });
+        };
+
+        while ((match = tagPattern.exec(content)) !== null) {
+            appendText(fragment, content.slice(cursor, match.index));
+            const highlight = document.createElement('span');
+            highlight.className = 'highlight';
+            highlight.style.background = `linear-gradient(180deg, transparent 50%, ${rgbaColor} 50%)`;
+            appendText(highlight, match[1]);
+            fragment.appendChild(highlight);
+            cursor = tagPattern.lastIndex;
+        }
+
+        appendText(fragment, content.slice(cursor));
+        element.replaceChildren(fragment);
     }
 
     addDragListeners(dragHandle, container, tagline) {
@@ -862,14 +925,17 @@ export class CardCutterApp {
     loadCards() {
         try {
             const raw = localStorage.getItem('cardsMemory');
-            if (raw) this.cards = JSON.parse(raw) || [];
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                this.cards = Array.isArray(parsed) ? parsed : [];
+            }
         } catch {
             this.cards = [];
         }
 
         // Check if we need to perform data migration
         const migrationVersion = this.getMigrationVersion();
-        const currentVersion = 4; // v4: Simplified highlighting with no newlines
+        const currentVersion = 5; // v5: canonical highlights while preserving line breaks
 
         let changed = false;
 
@@ -884,11 +950,9 @@ export class CardCutterApp {
                     changed = true;
                 }
 
-                // Clean up content only during migration
+                // Normalize legacy/malformed tags while preserving authored line breaks.
                 if (c.content && typeof c.content === 'string') {
-                    // Strip newlines and clean up tags
-                    const contentNoNewlines = c.content.replace(/\r?\n/g, ' ');
-                    const cleaned = this.cleanupStoredHighlightTags(contentNoNewlines);
+                    const cleaned = normalizeHighlightMarkup(c.content);
 
                     if (cleaned !== c.content) {
                         c.content = cleaned;
@@ -899,6 +963,10 @@ export class CardCutterApp {
                 // Ensure highlight color exists
                 if (!c.highlightColor) {
                     c.highlightColor = '#00FF00';
+                    changed = true;
+                }
+                if (c.link && !this.isValidUrl(c.link)) {
+                    c.link = '';
                     changed = true;
                 }
             }
@@ -917,6 +985,17 @@ export class CardCutterApp {
                     c.highlightColor = '#00FF00';
                     changed = true;
                 }
+                if (c.link && !this.isValidUrl(c.link)) {
+                    c.link = '';
+                    changed = true;
+                }
+                if (c.content && typeof c.content === 'string') {
+                    const cleaned = normalizeHighlightMarkup(c.content);
+                    if (cleaned !== c.content) {
+                        c.content = cleaned;
+                        changed = true;
+                    }
+                }
             }
         }
 
@@ -932,7 +1011,8 @@ export class CardCutterApp {
 
     getMigrationVersion() {
         try {
-            return parseInt(localStorage.getItem('hlTagMigrationVersion') || '0');
+            const version = Number.parseInt(localStorage.getItem('hlTagMigrationVersion') || '0', 10);
+            return Number.isFinite(version) ? version : 0;
         } catch {
             return 0;
         }
@@ -1292,15 +1372,30 @@ export class CardCutterApp {
             // First try to parse as JSON or structured format
             const detected = this.detectAndParseInput(input);
             if (detected) {
-                // Single item detected - populate fields
-                this.urlInput.value = detected.link;
-                this.claimInput.value = detected.tagline;
+                const items = Array.isArray(detected) ? detected : [detected];
+                const shouldCreateCards = items.length > 1 || items.some(item =>
+                    this.hasSuppliedCardContent(item) || (!item.link && item.sourceText)
+                );
+
+                if (shouldCreateCards) {
+                    closeModal();
+                    await this.importMultipleEvidence(items);
+                    this.showToast(`Imported ${items.length} evidence item${items.length > 1 ? 's' : ''}`, 'success');
+                    return;
+                }
+
+                const item = items[0];
+                // A source-only object populates the primary form for review.
+                this.urlInput.value = item.link || '';
+                this.claimInput.value = item.tagline;
+                if (this.sourceTextInput) this.sourceTextInput.value = item.sourceText || '';
 
                 // Trigger validation and reveal
                 this.validateInputs();
                 this.maybeRevealInitialExtra();
                 this.updateHintState(this.urlInput);
                 this.updateHintState(this.claimInput);
+                this.updateHintState(this.sourceTextInput);
 
                 // Close modal
                 closeModal();
@@ -1342,19 +1437,11 @@ export class CardCutterApp {
         // Try to parse as JSON first
         try {
             const parsed = JSON.parse(input);
-            if (parsed.tagline && parsed.link) {
-                return {
-                    tagline: String(parsed.tagline).trim(),
-                    link: String(parsed.link).trim()
-                };
-            }
-            // Try alternative JSON keys
-            if (parsed.claim && parsed.url) {
-                return {
-                    tagline: String(parsed.claim).trim(),
-                    link: String(parsed.url).trim()
-                };
-            }
+            const rawItems = Array.isArray(parsed)
+                ? parsed
+                : (Array.isArray(parsed?.items) ? parsed.items : [parsed?.card || parsed]);
+            const items = rawItems.map(item => this.normalizeImportedItem(item)).filter(Boolean);
+            if (items.length > 0) return Array.isArray(parsed) || Array.isArray(parsed?.items) ? items : items[0];
         } catch (e) {
             // Not JSON, try to parse as AI response
         }
@@ -1434,6 +1521,35 @@ export class CardCutterApp {
         return null;
     }
 
+    normalizeImportedItem(value) {
+        if (!value || typeof value !== 'object') return null;
+        const tagline = String(value.tagline ?? value.claim ?? '').trim();
+        const rawLink = String(value.link ?? value.url ?? value.sourceUrl ?? '').trim();
+        const link = rawLink && this.isValidUrl(rawLink) ? rawLink : '';
+        const sourceText = typeof value.sourceText === 'string' ? value.sourceText : '';
+        const hasContent = this.hasSuppliedCardContent(value);
+        if (!tagline || (!link && !sourceText && !hasContent)) return null;
+
+        const item = {tagline, link};
+        if (sourceText) item.sourceText = sourceText;
+        if (typeof value.cite === 'string' || typeof value.citation === 'string') {
+            item.cite = String(value.cite ?? value.citation ?? '').trim();
+        }
+        if (typeof value.markdownContent === 'string') {
+            item.markdownContent = value.markdownContent;
+        } else if (typeof value.content === 'string') {
+            item.content = value.content;
+        }
+        return item;
+    }
+
+    hasSuppliedCardContent(item) {
+        return Boolean(
+            (typeof item?.content === 'string' && item.content.trim()) ||
+            (typeof item?.markdownContent === 'string' && item.markdownContent.trim())
+        );
+    }
+
     async extractEvidenceWithAI(text) {
         try {
             const response = await fetch(`${API_BASE}/api/extract-evidence`, {
@@ -1458,7 +1574,7 @@ export class CardCutterApp {
     }
 
     async importMultipleEvidence(items) {
-        if (!items || items.length === 0) return;
+        if (!items || items.length === 0) return {successful: 0, failed: 0};
 
         const wasEmpty = this.cards.length === 0;
 
@@ -1466,18 +1582,23 @@ export class CardCutterApp {
         this.showProgressIndicator(items.length);
 
         // Add all items as cards
-        const startIndex = this.cards.length;
+        const importedCards = [];
         for (const item of items) {
             const tempId = `c_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+            const hasSuppliedContent = this.hasSuppliedCardContent(item);
+            const suppliedContent = item.markdownContent ?? item.content ?? '';
+            const safeLink = item.link && this.isValidUrl(item.link) ? item.link : '';
             const card = {
                 id: tempId,
-                tagline: item.tagline.replace(/,/g, ''), // Remove commas for custom ordering
-                link: item.link,
-                cite: '',
-                content: '',
-                pending: true
+                tagline: String(item.tagline || '').replace(/,/g, ''), // Remove commas for custom ordering
+                link: safeLink,
+                cite: hasSuppliedContent ? (item.cite || '') : '',
+                content: hasSuppliedContent ? normalizeHighlightMarkup(suppliedContent) : '',
+                pending: !hasSuppliedContent,
+                ...(!hasSuppliedContent && item.sourceText ? {sourceText: item.sourceText} : {})
             };
             this.cards.push(card);
+            importedCards.push(card);
         }
 
         this.persistCards();
@@ -1489,10 +1610,19 @@ export class CardCutterApp {
 
         // Track completed count for progress updates
         let completedCount = 0;
+        let successfulCount = 0;
 
         // Process all cards in parallel
         const promises = items.map(async (item, i) => {
-            const cardIndex = startIndex + i;
+            const cardId = importedCards[i].id;
+            const findCard = () => this.cards.find(card => card.id === cardId);
+
+            if (this.hasSuppliedCardContent(item)) {
+                completedCount++;
+                successfulCount++;
+                this.updateProgressIndicator(completedCount, items.length);
+                return;
+            }
 
             try {
                 const response = await fetch(`${API_BASE}/api/cite`, {
@@ -1501,25 +1631,29 @@ export class CardCutterApp {
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        link: item.link,
-                        tagline: item.tagline
+                        link: importedCards[i].link,
+                        tagline: item.tagline,
+                        sourceText: item.sourceText || undefined
                     })
                 });
 
                 if (response.ok) {
                     const data = await response.json();
-                    const card = this.cards[cardIndex];
+                    const result = data.card || data;
+                    const card = findCard();
                     if (card) {
-                        card.cite = data.cite || '';
-                        card.content = data.content || '';
+                        card.cite = result.cite || '';
+                        card.content = normalizeHighlightMarkup(result.content || result.markdownContent || '');
                         card.pending = false;
+                        delete card.sourceText;
+                        successfulCount++;
 
                         // Auto-evaluate the imported card if evaluation wasn't included
-                        if (!data.evaluation) {
+                        if (!result.evaluation) {
                             this.evaluateCard(card);
                         } else {
-                            card.evaluationScore = data.evaluation.score;
-                            card.evaluationBreakdown = data.evaluation;
+                            card.evaluationScore = result.evaluation.score;
+                            card.evaluationBreakdown = result.evaluation;
                         }
 
                         // Update progress
@@ -1530,7 +1664,7 @@ export class CardCutterApp {
                     }
                 } else {
                     // Mark as failed but keep the card
-                    const card = this.cards[cardIndex];
+                    const card = findCard();
                     if (card) {
                         card.cite = 'Failed to fetch evidence';
                         card.content = '';
@@ -1543,7 +1677,7 @@ export class CardCutterApp {
                 }
             } catch (error) {
                 console.error(`Failed to fetch evidence for ${item.tagline}:`, error);
-                const card = this.cards[cardIndex];
+                const card = findCard();
                 if (card) {
                     card.cite = 'Error fetching evidence';
                     card.content = '';
@@ -1561,6 +1695,9 @@ export class CardCutterApp {
 
         // Hide progress indicator
         this.hideProgressIndicator();
+        this.persistCards();
+        this.renderCuts();
+        return {successful: successfulCount, failed: items.length - successfulCount};
     }
 
     async retryPendingCards() {
@@ -1589,22 +1726,25 @@ export class CardCutterApp {
                     },
                     body: JSON.stringify({
                         link: card.link,
-                        tagline: card.tagline
+                        tagline: card.tagline,
+                        sourceText: card.sourceText || undefined
                     })
                 });
 
                 if (response.ok) {
                     const data = await response.json();
+                    const result = data.card || data;
 
                     // Update the card with the response
-                    card.cite = data.cite || '';
-                    card.content = data.content || '';
+                    card.cite = result.cite || '';
+                    card.content = normalizeHighlightMarkup(result.content || result.markdownContent || '');
                     card.pending = false;
+                    delete card.sourceText;
 
                     // Add evaluation if included
-                    if (data.evaluation) {
-                        card.evaluationScore = data.evaluation.score;
-                        card.evaluationBreakdown = data.evaluation;
+                    if (result.evaluation) {
+                        card.evaluationScore = result.evaluation.score;
+                        card.evaluationBreakdown = result.evaluation;
                     } else {
                         // Auto-evaluate if not included
                         this.evaluateCard(card);
@@ -2016,7 +2156,20 @@ export class CardCutterApp {
 
         let currentStep = 0;
         let tutorialElement = null;
-        let hasCompleted = localStorage.getItem('customOrderTutorialCompleted') === 'true';
+        let startTimer = null;
+        let hasCompleted = false;
+        try {
+            hasCompleted = localStorage.getItem('customOrderTutorialCompleted') === 'true';
+        } catch {
+            // Keep the contextual tutorial usable when storage is unavailable.
+        }
+
+        const clearStartTimer = () => {
+            if (startTimer) {
+                clearTimeout(startTimer);
+                startTimer = null;
+            }
+        };
 
         const showTutorialStep = (step) => {
             const target = document.querySelector(step.target);
@@ -2062,19 +2215,27 @@ export class CardCutterApp {
         };
 
         const completeTutorial = () => {
+            clearStartTimer();
             if (tutorialElement) {
                 tutorialElement.remove();
                 tutorialElement = null;
             }
-            localStorage.setItem('customOrderTutorialCompleted', 'true');
+            try {
+                localStorage.setItem('customOrderTutorialCompleted', 'true');
+            } catch {
+                // Closing the tutorial must not depend on storage availability.
+            }
             hasCompleted = true;
         };
 
         const tutorial = {
             start: () => {
-                if (hasCompleted) return;
+                if (hasCompleted || tutorialElement || startTimer) return;
 
-                setTimeout(() => {
+                startTimer = window.setTimeout(() => {
+                    startTimer = null;
+                    const modal = document.getElementById('custom-order-modal');
+                    if (!modal?.classList.contains('show') || hasCompleted) return;
                     showTutorialStep(steps[currentStep]);
                 }, 400);
             },
@@ -2087,6 +2248,7 @@ export class CardCutterApp {
                 }
             },
             reset: () => {
+                clearStartTimer();
                 if (tutorialElement) {
                     tutorialElement.remove();
                     tutorialElement = null;
@@ -2095,6 +2257,7 @@ export class CardCutterApp {
             },
             restart: () => {
                 // Reset tutorial state
+                clearStartTimer();
                 if (tutorialElement) {
                     tutorialElement.remove();
                     tutorialElement = null;
@@ -2103,7 +2266,10 @@ export class CardCutterApp {
                 hasCompleted = false;
 
                 // Start from beginning
-                setTimeout(() => {
+                startTimer = window.setTimeout(() => {
+                    startTimer = null;
+                    const modal = document.getElementById('custom-order-modal');
+                    if (!modal?.classList.contains('show')) return;
                     showTutorialStep(steps[currentStep]);
                 }, 100);
             }

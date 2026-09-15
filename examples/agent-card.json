@@ -1,0 +1,7 @@
+{
+  "tagline": "Demonstration: preserve exact source wording",
+  "link": "https://example.com/",
+  "citation": "Synthetic example, 2026",
+  "sourceText": "This is synthetic demonstration text. Card cutting preserves the original wording and highlights the selected passage.",
+  "markdownContent": "Card cutting **preserves the original wording** and highlights the selected passage."
+}

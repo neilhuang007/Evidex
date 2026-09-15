@@ -1,5 +1,23 @@
 // OnboardingTutorial.js - Interactive onboarding tutorial
 
+const STORAGE_KEY = 'evidex_onboarding_completed';
+
+function readCompletion() {
+    try {
+        return localStorage.getItem(STORAGE_KEY) === 'true';
+    } catch {
+        return false;
+    }
+}
+
+function writeCompletion() {
+    try {
+        localStorage.setItem(STORAGE_KEY, 'true');
+    } catch {
+        // The tutorial should still close when storage is unavailable.
+    }
+}
+
 export class OnboardingTutorial {
     constructor() {
         this.currentStep = 1;
@@ -15,6 +33,8 @@ export class OnboardingTutorial {
         this.tooltip = document.getElementById('onboarding-tooltip');
         this.tooltipContent = document.getElementById('tooltip-content');
         this.currentHighlightedElement = null;
+        this.initialized = false;
+        this.startTimer = null;
 
         this.steps = [
             {
@@ -120,19 +140,40 @@ export class OnboardingTutorial {
         this.bindEvents();
     }
 
-    init() {
-        // Check if user has seen onboarding
-        const hasSeenOnboarding = localStorage.getItem('evidex_onboarding_completed');
-
-        if (!hasSeenOnboarding) {
-            setTimeout(() => this.start(), 500);
-        }
+    isCompleted() {
+        return readCompletion();
     }
 
-    start() {
+    isEligible() {
+        return !this.isCompleted();
+    }
+
+    init({autoStart = true} = {}) {
+        if (this.initialized) return false;
+        this.initialized = true;
+
+        if (!autoStart || !this.isEligible()) return false;
+
+        this.startTimer = window.setTimeout(() => {
+            this.startTimer = null;
+            this.start();
+        }, 500);
+        return true;
+    }
+
+    start({force = false} = {}) {
+        if (!this.overlay) return false;
+        if (!force && !this.isEligible()) return false;
+        if (this.startTimer) {
+            clearTimeout(this.startTimer);
+            this.startTimer = null;
+        }
+        if (this.overlay.classList.contains('show')) return false;
+
         this.overlay.classList.add('show');
         this.currentStep = 1;
         this.showStep(1);
+        return true;
     }
 
     bindEvents() {
@@ -602,8 +643,11 @@ export class OnboardingTutorial {
     }
 
     complete() {
-        // Mark as completed
-        localStorage.setItem('evidex_onboarding_completed', 'true');
+        if (this.startTimer) {
+            clearTimeout(this.startTimer);
+            this.startTimer = null;
+        }
+        writeCompletion();
 
         // Hide overlay
         this.overlay.classList.remove('show');
@@ -640,6 +684,8 @@ export class OnboardingTutorial {
             });
             panel.remove();
         });
+
+        document.dispatchEvent(new CustomEvent('evidex:onboarding-complete'));
 
         // Hide cuts panel if it was shown for demo
         const cutsList = document.getElementById('cuts-list');

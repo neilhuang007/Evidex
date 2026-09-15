@@ -1,0 +1,19 @@
+{
+  "type": "function",
+  "function": {
+    "name": "cut_card",
+    "description": "Create a debate card from an article. Provide the claim and a public article URL, or exact article text already read. To choose the passage yourself without another model call, also supply markdownContent: an exact contiguous quote with **spoken words** bolded. Returns an importable card. Your tool runner sends these arguments to Evidex POST /api/cards and adds its private bearer token.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "tagline": {"type": "string", "description": "Claim the evidence should support."},
+        "link": {"type": "string", "description": "Public HTTP(S) article URL. Optional when sourceText is present."},
+        "sourceText": {"type": "string", "description": "Exact article text, when already available or server fetching failed."},
+        "citation": {"type": "string", "description": "Author/publication and date, copied from the article if available."},
+        "markdownContent": {"type": "string", "description": "Optional finished excerpt with paired **bold** highlight markers. Omit to let Evidex select it."}
+      },
+      "required": ["tagline"],
+      "additionalProperties": false
+    }
+  }
+}

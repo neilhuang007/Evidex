@@ -2,9 +2,26 @@
 
 const STORAGE_KEY = 'evidex_whatsnew_custom_export_v1';
 
+function readCompletion() {
+    try {
+        return localStorage.getItem(STORAGE_KEY) === 'true';
+    } catch {
+        return false;
+    }
+}
+
+function writeCompletion() {
+    try {
+        localStorage.setItem(STORAGE_KEY, 'true');
+    } catch {
+        // The tutorial should still close when storage is unavailable.
+    }
+}
+
 export class WhatsNewTutorial {
-    constructor(app) {
+    constructor(app, {autoStart = true} = {}) {
         this.app = app;
+        this.autoStart = autoStart;
         this.overlay = document.getElementById('whatsnew-overlay');
         this.contentEl = document.getElementById('whatsnew-step-content');
         this.panelEl = document.getElementById('whatsnew-content');
@@ -27,6 +44,8 @@ export class WhatsNewTutorial {
         this.samplesInjected = false;
         this.userHadCards = Array.isArray(this.app?.cards) && this.app.cards.length > 0;
         this.highlightTimeout = null;
+        this.startTimer = null;
+        this.initialized = false;
 
         this.refreshTriggerVisibility();
 
@@ -131,20 +150,29 @@ export class WhatsNewTutorial {
     }
 
     init() {
-        if (localStorage.getItem(STORAGE_KEY)) return;
+        if (this.initialized) return false;
+        this.initialized = true;
+        if (!this.autoStart || readCompletion()) return false;
+
         // Delay auto-start so onboarding can finish first.
-        setTimeout(() => {
+        this.startTimer = window.setTimeout(() => {
+            this.startTimer = null;
             if (this.overlay?.classList.contains('show')) return;
             const onboardingVisible = document.getElementById('onboarding-overlay')?.classList.contains('show');
             if (!onboardingVisible) {
                 this.start();
             }
         }, 2400);
+        return true;
     }
 
     start(options = {}) {
         if (!this.overlay) return;
-        if (!options.force && localStorage.getItem(STORAGE_KEY)) return;
+        if (!options.force && readCompletion()) return;
+        if (this.startTimer) {
+            clearTimeout(this.startTimer);
+            this.startTimer = null;
+        }
         if (this.overlay.classList.contains('show')) return;
         this.prepareWorkspace();
         this.overlay.classList.add('show');
@@ -330,15 +358,7 @@ export class WhatsNewTutorial {
 
     refreshTriggerVisibility() {
         if (!this.triggerBtn) return;
-        if (localStorage.getItem(STORAGE_KEY)) {
-            this.removeTrigger();
-        }
-    }
-
-    removeTrigger() {
-        if (!this.triggerBtn) return;
-        this.triggerBtn.remove();
-        this.triggerBtn = null;
+        this.triggerBtn.hidden = false;
     }
 
     prepareWorkspace() {
@@ -457,11 +477,14 @@ export class WhatsNewTutorial {
     }
 
     complete() {
-        localStorage.setItem(STORAGE_KEY, 'true');
+        if (this.startTimer) {
+            clearTimeout(this.startTimer);
+            this.startTimer = null;
+        }
+        writeCompletion();
         this.hideContextualUi();
         this.resetHighlightState();
         this.resetPanelPosition();
-        this.removeTrigger();
         this.overlay?.classList.remove('show');
         if (this.modalOpenedByTutorial && this.modal?.classList.contains('show')) {
             this.modal.classList.remove('show');

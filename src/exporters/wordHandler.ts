@@ -8,7 +8,7 @@ export type RenderNode =
     | { kind: "tagline"; runs: InlineRun[]; highlightColor?: string }
     | { kind: "text"; runs: InlineRun[]; highlightColor?: string }
   | { kind: "link"; href: string; text: string }
-  | { kind: "cite"; text: string };
+  | { kind: "cite"; text: string; highlightColor?: string };
 
 export interface WordHandlerOptions {
   outputDir?: string; // default: "output"
@@ -37,7 +37,6 @@ function ptToHalfPoints(pt: number): number {
 }
 
 export function parseTagged(input: string, defaultHighlightColor?: string): RenderNode[] {
-    console.log('parseTagged called with color:', defaultHighlightColor);
   // Normalize newlines but DO NOT trim — preserve leading/trailing blanks
   const text = input.replace(/\r\n/g, "\n");
   const nodes: RenderNode[] = [];
@@ -68,7 +67,7 @@ export function parseTagged(input: string, defaultHighlightColor?: string): Rend
     // [CITE]...[/CITE]\n?
     m = /^\[CITE\]([\s\S]*?)\[\/CITE\](?:\n)?/i.exec(s);
     if (m) {
-      nodes.push({ kind: "cite", text: m[1].trim() });
+      nodes.push({ kind: "cite", text: m[1].trim(), highlightColor: defaultHighlightColor });
       i += m[0].length;
       continue;
     }
@@ -93,24 +92,18 @@ export function parseTagged(input: string, defaultHighlightColor?: string): Rend
   return nodes;
 }
 
-function parseRuns(text: string): InlineRun[] {
+export function parseRuns(text: string): InlineRun[] {
   const runs: InlineRun[] = [];
-    console.log('parseRuns input text:', text);
 
     // Support both <HL> and <hl> tags (case insensitive)
     const re = /<hl>([\s\S]*?)<\/hl>/gi;
 
     // First normalize the text to ensure consistent case
-    const originalText = text;
     text = text.replace(/<HL>/gi, '<hl>').replace(/<\/HL>/gi, '</hl>');
-    console.log('parseRuns normalized text:', text);
 
   let lastIndex = 0;
   let m: RegExpExecArray | null;
-    let matchCount = 0;
   while ((m = re.exec(text)) !== null) {
-      matchCount++;
-      console.log(`Found highlight match ${matchCount}:`, m[1]);
     const idx = m.index;
     if (idx > lastIndex) {
       runs.push({ kind: "plain", text: text.slice(lastIndex, idx) });
@@ -121,7 +114,6 @@ function parseRuns(text: string): InlineRun[] {
   if (lastIndex < text.length) {
     runs.push({ kind: "plain", text: text.slice(lastIndex) });
   }
-    console.log(`parseRuns found ${matchCount} highlights, returning ${runs.length} runs`);
   return runs;
 }
 
@@ -135,9 +127,6 @@ function renderParagraphs(nodes: RenderNode[], defaultHighlightColor?: string): 
         const hlColor = nodeHighlightColor ? nodeHighlightColor.replace('#', '') :
             defaultHighlightColor ? defaultHighlightColor.replace('#', '') :
                 COLORS.brightGreen;
-        if (r.kind === "hl") {
-            console.log(`Creating highlight run with color: ${hlColor} (node: ${nodeHighlightColor}, default: ${defaultHighlightColor})`);
-        }
 
     if (mode === "tagline") {
         const taglineSize = ptToHalfPoints(SIZES.taglinePt);
@@ -270,7 +259,7 @@ function renderParagraphs(nodes: RenderNode[], defaultHighlightColor?: string): 
       // Ensure exactly one blank line before cite
       ensureExactlyOneTrailingBlank();
         // Use the default highlight color for cite background, fallback to brightGreen
-        const citeColor = defaultHighlightColor ? defaultHighlightColor.replace('#', '') : COLORS.brightGreen;
+        const citeColor = (node.highlightColor || defaultHighlightColor || COLORS.brightGreen).replace('#', '');
       const citeRun = new TextRun({
         text: node.text,
         italics: true,

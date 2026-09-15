@@ -1,0 +1,103 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Evidex Agent API",
+    "version": "1.0.0",
+    "description": "Create grounded debate cards and export them. Submit exact source text and markdownContent with **bold** highlights to avoid a model call. Omit markdownContent/content to let DeepSeek select the passage. Cards are returned to the caller; this API does not write to a user's browser storage."
+  },
+  "servers": [{"url": "https://ev1dex.com"}],
+  "paths": {
+    "/api/cards": {
+      "post": {
+        "operationId": "cutCard",
+        "summary": "Generate or validate a highlighted evidence card",
+        "security": [{"agentToken": []}],
+        "requestBody": {
+          "required": true,
+          "content": {"application/json": {"schema": {"$ref": "#/components/schemas/CardInput"}}}
+        },
+        "responses": {
+          "200": {
+            "description": "A card whose unmarked excerpt matches its supplied or fetched source, plus token usage (null for a supplied cut).",
+            "content": {"application/json": {"schema": {
+              "type": "object",
+              "required": ["status", "card", "meta"],
+              "properties": {
+                "status": {"type": "string", "enum": ["success"]},
+                "card": {"$ref": "#/components/schemas/Card"},
+                "meta": {"type": "object", "description": "Generation mode, model, source metadata, and actual provider usage."}
+              }
+            }}}
+          },
+          "400": {"description": "Invalid input, malformed highlights, unsupported source, or excerpt not found in the source."},
+          "401": {"description": "Missing or invalid Evidex agent bearer token."},
+          "422": {"description": "Source fetch failed or document type is unsupported; supply sourceText."},
+          "429": {"description": "Too many requests; observe Retry-After."},
+          "502": {"description": "Source or model request failed."},
+          "503": {"description": "Server model or agent credentials are not configured."},
+          "504": {"description": "Upstream request timed out."}
+        }
+      }
+    },
+    "/api/download-docx": {
+      "post": {
+        "operationId": "exportCardDocx",
+        "summary": "Export a returned card as a Word document",
+        "requestBody": {
+          "required": true,
+          "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Card"}}}
+        },
+        "responses": {
+          "200": {
+            "description": "Word document with the card's highlights",
+            "content": {"application/vnd.openxmlformats-officedocument.wordprocessingml.document": {"schema": {"type": "string", "format": "binary"}}}
+          },
+          "400": {"description": "Invalid card"}
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "agentToken": {"type": "http", "scheme": "bearer", "description": "EVIDEX_AGENT_API_TOKEN, issued by the Evidex owner. Never use the DeepSeek provider key here."}
+    },
+    "schemas": {
+      "CardInput": {
+        "type": "object",
+        "required": ["tagline"],
+        "description": "Provide sourceText or link/sourceUrl. Supply either markdownContent or content for a finished cut; omit both for model generation. A supplied excerpt must be a contiguous exact quote, with whitespace normalization permitted.",
+        "properties": {
+          "tagline": {"type": "string", "maxLength": 500},
+          "link": {"type": "string", "description": "HTTP(S) source URL; optional when sourceText is supplied."},
+          "sourceUrl": {"type": "string", "description": "Alias for link."},
+          "sourceText": {"type": "string", "maxLength": 120000},
+          "citation": {"type": "string", "description": "Citation copied from the source; otherwise derived from available source metadata."},
+          "markdownContent": {"type": "string", "maxLength": 15000, "description": "Exact quote with paired **bold** highlight markers."},
+          "content": {"type": "string", "maxLength": 15000, "description": "Alternative to markdownContent: exact quote with balanced, non-nested <HL>...</HL> highlights."}
+        }
+      },
+      "Card": {
+        "type": "object",
+        "required": ["tagline", "cite", "content"],
+        "properties": {
+          "tagline": {"type": "string"},
+          "link": {"type": "string"},
+          "cite": {"type": "string"},
+          "content": {"type": "string", "description": "Canonical source text with <HL>...</HL> highlights; pass through unchanged for export."},
+          "plainText": {"type": "string"},
+          "markdownContent": {"type": "string"},
+          "highlightColor": {"type": "string", "pattern": "^#[0-9a-fA-F]{6}$"},
+          "highlights": {"type": "array", "items": {
+            "type": "object",
+            "required": ["start", "end", "text"],
+            "properties": {
+              "start": {"type": "integer", "description": "Inclusive UTF-16 offset in plainText."},
+              "end": {"type": "integer", "description": "Exclusive UTF-16 offset in plainText."},
+              "text": {"type": "string"}
+            }
+          }}
+        }
+      }
+    }
+  }
+}

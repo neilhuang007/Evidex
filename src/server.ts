@@ -1,199 +1,185 @@
+import 'dotenv/config';
+import 'dotenv/config';
 import express from 'express';
-import cors from 'cors';
 import path from 'path';
-import {promises as fs} from 'fs';
-import {convertContentParts, generateWithRetry} from './ai/gemini-wrapper';
-import {parseTagged, renderDocxBuffer} from './exporters/wordHandler';
+import {cutCard} from './cards/card-service';
+import {evaluateCard, extractEvidence} from './ai/evidence-services';
+import {DEEPSEEK_MODEL, getDeepSeekApiKey} from './ai/deepseek-wrapper';
+import {authorizeAgent, clientAddress, consumeRateLimit, toApiFailure} from './http/api-security';
+import {ExportInputError, exportDocxCards, normalizeExportCard, normalizeExportCards} from './exporters/card-export';
 import {renderPdfBuffer} from './exporters/pdfHandler';
 
-// Vercel provides env vars via process.env; prefer GEMINI_API_KEY
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
-if (!GEMINI_API_KEY) {
-  console.warn('Warning: No Gemini API key found in GEMINI_API_KEY. /api/cite will return fetch_error until configured.');
-}
-
-const app = express();
+export const app = express();
 const PORT = process.env.PORT || 3000;
+const trustedProxy = process.env.TRUST_CLOUDFLARE === 'true' ? 'cloudflare' : undefined;
 
-app.use(cors());
-app.use(express.json());
-// Serve static assets from project root, not dist
+app.use(express.json({limit: '512kb'}));
 app.use(express.static(path.join(process.cwd(), 'public')));
 
-// New endpoint: cite evidence using minimal schema { status, cite, content }
 app.post('/api/cite', async (req, res) => {
+  const rate = consumeRateLimit('public-ai', clientAddress(req.headers, req.socket.remoteAddress, trustedProxy), 30);
+  res.setHeader('X-RateLimit-Remaining', String(rate.remaining));
+  if (!rate.allowed) {
+    res.setHeader('Retry-After', String(rate.retryAfterSeconds));
+    res.status(429).json({status: 'fetch_error', cite: '', content: '', error: 'Too many requests'});
+    return;
+  }
+
   try {
-    const { link, tagline } = req.body || {};
-    if (!link || !tagline) {
-      return res.status(200).json({ status: 'fetch_error', cite: '', content: '', error: 'tagline and link are required' });
+    const body = (req.body || {}) as Record<string, unknown>;
+    const result = await cutCard({
+      tagline: body.tagline,
+      link: body.link,
+      sourceUrl: body.sourceUrl,
+      sourceText: body.sourceText,
+      citation: body.citation,
+      cite: body.cite,
+      markdownContent: body.markdownContent,
+      content: body.content
+    });
+    let evaluation = null;
+    const isDirectCut = typeof body.markdownContent === 'string' || typeof body.content === 'string';
+    if (body.includeEvaluation === true || (!isDirectCut && body.includeEvaluation !== false)) {
+      try {
+        evaluation = await evaluateCard({
+          tagline: result.card.tagline,
+          cite: result.card.cite,
+          content: result.card.content,
+          link: result.card.link || 'Provided source'
+        }, {retries: 1, timeoutMs: 8_000});
+      } catch {}
     }
-    if (!GEMINI_API_KEY) {
-      return res.status(200).json({ status: 'fetch_error', cite: '', content: '', error: 'Server missing GEMINI_API_KEY' });
-    }
-
-    // Load the minimal prompt
-    // Load prompt from project root, not dist
-    const promptPath = path.resolve(process.cwd(), 'config', 'prompts', 'card_cutter.json');
-    const promptRaw = await fs.readFile(promptPath, 'utf8');
-    const prompt = JSON.parse(promptRaw);
-
-    const schemaText = JSON.stringify(prompt.outputSchema);
-    const shotsText = Array.isArray(prompt.shots)
-      ? prompt.shots
-          .map((s: any, i: number) => `Example ${i + 1}\nInput:\n${JSON.stringify(s.input)}\nOutput:\n${JSON.stringify(s.output)}`)
-          .join('\n\n')
-      : '';
-
-    const systemPrompt = [
-      prompt.system || '',
-      prompt.instructions || '',
-      'Return JSON only. Match this JSON schema exactly:',
-      schemaText,
-      shotsText ? `\nFew-shot examples:\n${shotsText}` : ''
-    ].join('\n\n');
-
-    const userText = `tagline: ${tagline}\nlink: ${link}`;
-    const contents = convertContentParts([{ text: userText }]);
-
-      const raw = await generateWithRetry(contents, systemPrompt, null, 'gemini-3-pro-preview', 2, GEMINI_API_KEY);
-    const parsed = coerceJson(raw);
-    if (!parsed || typeof parsed.status !== 'string' || typeof parsed.cite !== 'string' || typeof parsed.content !== 'string') {
-      return res.status(200).json({ status: 'fetch_error', cite: '', content: '', error: 'Model returned unexpected format' });
-    }
-    return res.status(200).json({ status: parsed.status, cite: parsed.cite, content: parsed.content });
-  } catch (error: any) {
-    console.error('Error in /api/cite:', error);
-    res.status(200).json({ status: 'fetch_error', cite: '', content: '', error: String(error?.message || error) });
+    res.status(200).json({
+      status: 'success',
+      cite: result.card.cite,
+      content: result.card.content,
+      plainText: result.card.plainText,
+      markdownContent: result.card.markdownContent,
+      highlights: result.card.highlights,
+      evaluation,
+      meta: result.meta
+    });
+  } catch (error) {
+    const failure = toApiFailure(error);
+    res.status(200).json({
+      status: 'fetch_error', cite: '', content: '',
+      error: failure.body.error.message,
+      errorCode: failure.body.error.code
+    });
   }
 });
 
-function coerceJson(text: string): any | null {
-  if (!text) return null;
-  try { return JSON.parse(text); } catch {}
-  // ```json ... ``` fenced
-  const fenced = /```(?:json)?\s*([\s\S]*?)\s*```/i.exec(text);
-  if (fenced && fenced[1]) {
-    try { return JSON.parse(fenced[1]); } catch {}
+app.post('/api/cards', async (req, res) => {
+  const authFailure = authorizeAgent(req.headers.authorization);
+  if (authFailure) {
+    res.status(authFailure.statusCode).json(authFailure.body);
+    return;
   }
-  // Braces slice
-  const first = text.indexOf('{');
-  const last = text.lastIndexOf('}');
-  if (first >= 0 && last > first) {
-    const slice = text.slice(first, last + 1);
-    try { return JSON.parse(slice); } catch {}
+  const rate = consumeRateLimit('cards', clientAddress(req.headers, req.socket.remoteAddress, trustedProxy), 60);
+  res.setHeader('X-RateLimit-Remaining', String(rate.remaining));
+  if (!rate.allowed) {
+    res.setHeader('Retry-After', String(rate.retryAfterSeconds));
+    res.status(429).json({error: {code: 'rate_limited', message: 'Too many requests'}});
+    return;
   }
-  return null;
-}
+  try {
+    res.status(200).json(await cutCard(req.body || {}));
+  } catch (error) {
+    const failure = toApiFailure(error);
+    res.status(failure.statusCode).json(failure.body);
+  }
+});
+
+app.post('/api/evaluate', async (req, res) => {
+  const rate = consumeRateLimit('public-ai', clientAddress(req.headers, req.socket.remoteAddress, trustedProxy), 30);
+  if (!rate.allowed) {
+    res.setHeader('Retry-After', String(rate.retryAfterSeconds));
+    res.status(429).json({error: 'Too many requests'});
+    return;
+  }
+  try {
+    res.status(200).json(await evaluateCard(req.body || {}));
+  } catch (error) {
+    const failure = toApiFailure(error);
+    res.status(failure.statusCode).json(failure.body);
+  }
+});
+
+app.post('/api/extract-evidence', async (req, res) => {
+  const rate = consumeRateLimit('public-ai', clientAddress(req.headers, req.socket.remoteAddress, trustedProxy), 30);
+  if (!rate.allowed) {
+    res.setHeader('Retry-After', String(rate.retryAfterSeconds));
+    res.status(429).json({error: 'Too many requests'});
+    return;
+  }
+  try {
+    const result = await extractEvidence(req.body?.text);
+    if (!result.items.length) {
+      res.status(400).json({error: 'No valid evidence links found in text'});
+      return;
+    }
+    res.status(200).json({success: true, ...result});
+  } catch (error) {
+    const failure = toApiFailure(error);
+    res.status(failure.statusCode).json(failure.body);
+  }
+});
 
 app.post('/api/download-docx', async (req, res) => {
   try {
-      const {tagline, link, cite, content, highlightColor} = req.body || {};
-    if (!tagline || !link || !cite || !content) {
-      return res.status(400).json({ error: 'tagline, link, cite, and content are required' });
-    }
-
-    const taggedBlock = `
-[TAGLINE]${tagline}[/TAGLINE]
-[LINK]${link}[/LINK]
-
-[CITE]${cite}[/CITE]
-
-${content}
-`.trim();
-
-      const nodes = parseTagged(taggedBlock, highlightColor);
-      const buffer = await renderDocxBuffer(nodes, highlightColor);
-
-    const safe = (s: string) => s.replace(/[^a-z0-9]+/gi, '_').replace(/^_+|_+$/g, '').slice(0, 60) || 'card';
-    const fileName = `${safe(cite)}_${Date.now()}.docx`;
-
+    const card = normalizeExportCard(req.body);
+    const buffer = await exportDocxCards([card]);
+    const safe = card.cite.replace(/[^a-z0-9]+/gi, '_').replace(/^_+|_+$/g, '').slice(0, 60) || 'card';
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${safe}_${Date.now()}.docx"`);
     res.send(buffer);
   } catch (error) {
-    console.error('Error generating document:', error);
-    res.status(500).json({ error: 'Failed to generate document' });
+    res.status(error instanceof ExportInputError ? 400 : 500).json({
+      error: error instanceof ExportInputError ? error.message : 'Failed to generate document'
+    });
   }
 });
 
-// Bulk download: accept multiple cards and compile into one .docx
 app.post('/api/download-docx-bulk', async (req, res) => {
   try {
-    const { cards } = req.body || {};
-    if (!Array.isArray(cards) || cards.length === 0) {
-      return res.status(400).json({ error: 'cards[] required' });
-    }
-
-      const allNodes: any[] = [];
-
-    for (const c of cards) {
-      const tagline = (c?.tagline ?? '').toString();
-      const link = (c?.link ?? '').toString();
-      const cite = (c?.cite ?? '').toString();
-      const content = (c?.content ?? '').toString();
-        const cardColor = c?.highlightColor;
-
-        const cardTagged = `
-[TAGLINE]${tagline}[/TAGLINE]
-[LINK]${link}[/LINK]
-
-[CITE]${cite}[/CITE]
-
-${content}
-`.trim();
-
-        // Parse this card with its specific color
-        const cardNodes = parseTagged(cardTagged, cardColor);
-        allNodes.push(...cardNodes);
-
-        // Add spacing between cards (2 blank paragraphs)
-        if (allNodes.length > 0) {
-            allNodes.push({kind: "text", runs: [{kind: "plain", text: "\n\n"}]});
-        }
-    }
-
-      const buffer = await renderDocxBuffer(allNodes);
-
-    const fileName = `cards_${Date.now()}.docx`;
+    const buffer = await exportDocxCards(normalizeExportCards(req.body?.cards));
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.setHeader('Content-Disposition', `attachment; filename="cards_${Date.now()}.docx"`);
     res.send(buffer);
   } catch (error) {
-    console.error('Error generating bulk document:', error);
-    res.status(500).json({ error: 'Failed to generate document' });
+    res.status(error instanceof ExportInputError ? 400 : 500).json({
+      error: error instanceof ExportInputError ? error.message : 'Failed to generate document'
+    });
   }
 });
 
-// Bulk download PDF: accept multiple cards and compile into one .pdf
 app.post('/api/download-pdf-bulk', async (req, res) => {
-    try {
-        const {cards} = req.body || {};
-        if (!Array.isArray(cards) || cards.length === 0) {
-            return res.status(400).json({error: 'cards[] required'});
-        }
-
-        const buffer = await renderPdfBuffer(cards);
-
-        const fileName = `cards_${Date.now()}.pdf`;
-        res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
-        res.send(buffer);
-    } catch (error) {
-        console.error('Error generating PDF document:', error);
-        res.status(500).json({error: 'Failed to generate PDF document'});
-    }
+  try {
+    const buffer = await renderPdfBuffer(normalizeExportCards(req.body?.cards));
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="cards_${Date.now()}.pdf"`);
+    res.send(buffer);
+  } catch (error) {
+    res.status(error instanceof ExportInputError ? 400 : 500).json({
+      error: error instanceof ExportInputError ? error.message : 'Failed to generate document'
+    });
+  }
 });
 
-app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+app.get('/api/health', (_req, res) => {
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    ai: {provider: 'deepseek', model: DEEPSEEK_MODEL, configured: Boolean(getDeepSeekApiKey())}
+  });
 });
 
-// Serve index.html for any other GET route (SPA fallback)
-app.get('*', (req, res) => {
+app.get('*', (_req, res) => {
   res.sendFile(path.join(process.cwd(), 'public', 'index.html'));
 });
 
-app.listen(PORT, () => {
-    console.log(`✨ AI Card Cutter server running at http://localhost:${PORT}`);
-    console.log(`📝 Open http://localhost:${PORT} in your browser to use the app`);
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Evidex server listening on http://localhost:${PORT}`);
+  });
+}

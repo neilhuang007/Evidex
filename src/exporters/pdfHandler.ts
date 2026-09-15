@@ -107,7 +107,7 @@ function renderContentWithHighlights(
         .replace(/<\/?hl>/gi, (m) => m.toUpperCase());
 
     // Simple approach: split by HL tags and render sequentially
-    const hlPattern = /<HL>(.*?)<\/HL>/gi;
+    const hlPattern = /<HL>([\s\S]*?)<\/HL>/gi;
     let lastIndex = 0;
     let match;
 
@@ -176,6 +176,16 @@ function renderContentWithHighlights(
 
             while (remainingLine.length > 0 && safetyCounter < maxIterations) {
                 safetyCounter++;
+                // Explicit positioning bypasses PDFKit's automatic text flow.
+                // Start a page before drawing either text or its highlight box.
+                if (currentY + Math.max(lineHeightTracker, segmentLineAdvance) >
+                    doc.page.height - doc.page.margins.bottom) {
+                    doc.addPage();
+                    currentX = startX;
+                    currentY = doc.page.margins.top;
+                    lineHeightTracker = defaultLineAdvance;
+                    doc.font(fontName).fontSize(fontSize);
+                }
                 const availableWidth = startX + maxWidth - currentX;
 
                 if (availableWidth <= 0) {

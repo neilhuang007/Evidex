@@ -476,6 +476,34 @@ body.initial-mode .input-group {
     transform: scale(1);
 }
 
+.source-text-details {
+    margin: 0 0 20px;
+}
+
+.source-text-details summary {
+    cursor: pointer;
+    font-size: 14px;
+    padding: 6px 0;
+}
+
+.source-text-details[open] summary {
+    margin-bottom: 12px;
+}
+
+.source-text-help {
+    font-size: 13px;
+    line-height: 1.5;
+    margin: 8px 0 12px;
+    opacity: 0.8;
+}
+
+.source-text-details textarea {
+    width: 100%;
+    min-height: 140px;
+    max-height: 360px;
+    resize: vertical;
+}
+
 .input-wrapper {
     position: relative;
     display: flex;
@@ -1052,7 +1080,19 @@ body.initial-mode .input-group {
 }
 
 @media (max-width: 900px) {
-    .main-split { grid-template-columns: 1fr; }
+    .main-split {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-areas:
+            'cuts'
+            'input';
+        width: 100%;
+    }
+
+    .main-split > .glass-card {
+        box-sizing: border-box;
+        min-width: 0;
+        width: 100%;
+    }
 }
 
 .cuts-panel {

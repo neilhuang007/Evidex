@@ -12,6 +12,8 @@ window.hexToRgba = hexToRgba;
 
 // Initialize application when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
+    if (window.cardCutterApp) return;
+
     // Initialize main app
     const app = new CardCutterApp();
     app.loadCards();
@@ -23,18 +25,29 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize editing panel globally
     window.editingPanel = new EditingPanel();
 
-    // Initialize onboarding tutorial (but don't start it yet)
+    // Only one tutorial may auto-start in a page lifecycle. New users see
+    // onboarding first; the versioned What's New tour is eligible next load.
     window.onboarding = new OnboardingTutorial();
+    const onboardingEligible = window.onboarding.isEligible();
+    window.onboarding.init();
 
     // Initialize What's New tutorial for recent features
-    window.whatsNewTutorial = new WhatsNewTutorial(app);
+    window.whatsNewTutorial = new WhatsNewTutorial(app, {
+        autoStart: !onboardingEligible
+    });
 
     // Make EvaluationService available globally
     window.EvaluationService = EvaluationService;
 
     // Add utility to reset onboarding for testing (can be called from console)
     window.resetOnboarding = () => {
-        localStorage.removeItem('evidex_onboarding_completed');
-        window.onboarding.start();
+        try {
+            localStorage.removeItem('evidex_onboarding_completed');
+        } catch {
+            // Replay still works in storage-restricted browsing contexts.
+        }
+        window.onboarding.start({force: true});
     };
+
+    window.replayOnboarding = () => window.onboarding.start({force: true});
 });

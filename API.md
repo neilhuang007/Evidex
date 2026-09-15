@@ -1,630 +1,159 @@
-# Evidex API Documentation
+# Evidex API
 
-## Overview
+Base URL: `https://ev1dex.com`. The Express development server exposes the same routes.
 
-Evidex provides a RESTful API for extracting, analyzing, and exporting debate evidence from web sources. The API is
-deployed on Vercel as serverless functions and can also be self-hosted using the Express server.
+- [OpenAPI schema](https://ev1dex.com/openapi.json)
+- [DeepSeek-compatible function definition](https://ev1dex.com/agent-tool.json)
+- [Runnable agent client](examples/cut-card.mjs)
 
-**Base URL (Production):** `https://your-deployment.vercel.app`
-**Base URL (Local Development):** `http://localhost:3000`
+## The simplest agent workflow
 
-## Authentication
+Send the claim and article URL to `POST /api/cards`. Supply `sourceText` when your agent has already read the article. Evidex returns the citation and highlighted excerpt.
 
-Currently, the API does not require client-side authentication. However, the server requires a valid `GEMINI_API_KEY`
-environment variable to be set for AI-powered operations.
-
-## Common Response Codes
-
-| Code  | Description                                                      |
-|-------|------------------------------------------------------------------|
-| `200` | Success (even for handled errors - see response body for status) |
-| `400` | Bad Request - Invalid input parameters                           |
-| `405` | Method Not Allowed - Wrong HTTP method                           |
-| `500` | Internal Server Error                                            |
-
-## Endpoints
-
-### 1. Extract Evidence
-
-Extracts relevant evidence from a web source that supports a given tagline. The API fetches the webpage, analyzes its
-content using AI, and returns highlighted evidence with optional credibility evaluation.
-
-**Endpoint:** `POST /api/cite`
-
-#### Request
-
-**Headers:**
-
-```http
-Content-Type: application/json
-```
-
-**Body:**
+If your agent chooses the passage itself, add `markdownContent` with **bold markers**. This path validates and formats the card without calling DeepSeek:
 
 ```json
 {
-  "tagline": "Climate change impacts are accelerating",
-  "link": "https://example.com/article",
-  "includeEvaluation": true
+  "tagline": "Card cutting preserves source wording",
+  "sourceText": "Accurate card cutting preserves the original wording and highlights the selected passage.",
+  "citation": "Synthetic demonstration, 2026",
+  "markdownContent": "Accurate card cutting **preserves the original wording** and highlights the selected passage."
 }
 ```
 
-**Parameters:**
+Keep the original words and punctuation. The model should not calculate character positions or write HTML. The server calculates highlight positions and the `<HL>` representation.
 
-| Field               | Type    | Required | Description                                                 |
-|---------------------|---------|----------|-------------------------------------------------------------|
-| `tagline`           | string  | Yes      | The claim or thesis you want evidence to support            |
-| `link`              | string  | Yes      | URL of the source webpage to extract evidence from          |
-| `includeEvaluation` | boolean | No       | Whether to include credibility evaluation (default: `true`) |
+For a tool-calling agent, bind `cut_card` from `agent-tool.json` to `POST /api/cards` in your tool runner. The runner supplies authentication. Return just `tagline`, `link`, `cite`, and `markdownContent` to the model to avoid repeating the excerpt in three formats. The example CLI does this automatically:
 
-#### Response
+```sh
+node examples/cut-card.mjs examples/agent-card.json card.docx
+```
 
-**Success Response:**
+The CLI writes compact importable card JSON to stdout, usage to stderr, and optionally saves Word output. It defaults to the live site; set `EVIDEX_API_URL=http://localhost:3001` to test locally. It loads the ignored local `.env` file.
+
+## Authentication and server configuration
+
+`/api/cards` requires:
+
+```http
+Authorization: Bearer <EVIDEX_AGENT_API_TOKEN>
+Content-Type: application/json
+```
+
+`EVIDEX_AGENT_API_TOKEN` is a separate Evidex credential. Do not send a DeepSeek key to this route. The owner stores the token in the backend environment and supplies it to trusted agent runners. If it is unset, the route returns 503; incorrect or absent credentials return 401.
+
+Provider calls use server environment `DEEPSEEK_API_KEY` or the compatibility alias `DS_API_KEY`. `DEEPSEEK_MODEL` defaults to `deepseek-flash`. No provider key is embedded in browser assets, API results, or logs.
+
+The browser's `/api/cite`, `/api/evaluate`, and `/api/extract-evidence` routes are public, with a shared per-instance throttle of 30 requests/minute/IP. The authenticated card route allows 60 requests/minute/IP per instance. These in-memory counters are not a global spending quota across Vercel instances. Configure provider/hosting spend limits for a strict budget.
+
+Express trusts its direct peer address by default. Set `TRUST_CLOUDFLARE=true` only behind a proxy that enforces the repository's Cloudflare origin restrictions. The agent token grants shared API access, not a user account or access to browser-local cards.
+
+## POST /api/cards
+
+### Request
+
+| Field | Purpose |
+| --- | --- |
+| `tagline` | Required claim, at most 500 characters. |
+| `link` or `sourceUrl` | Public HTTP(S) source URL, at most 2,048 characters. Optional when supplying text. |
+| `sourceText` | Exact article text, at most 120,000 characters. Takes precedence over fetching. |
+| `citation` or `cite` | Optional citation, at most 160 characters. Otherwise derived from available source metadata; missing metadata is not invented. |
+| `markdownContent` | Optional exact excerpt with balanced `**...**` spans, at most 15,000 characters. Makes the request deterministic and free of model calls. |
+| `content` | Alternative to `markdownContent`, using balanced non-nested `<HL>...</HL>` tags. Supply one format. |
+
+Provide source text or a source URL. Finished cuts need at least one nonempty highlight, with at most 24 spans, and an excerpt of at least 20 characters. The excerpt must occur contiguously in the source; whitespace differences are allowed. A successful grounding check establishes textual matching, not the accuracy of the source or independent proof of the citation's identity.
+
+### Response
 
 ```json
 {
   "status": "success",
-  "cite": "Smith et al., 2024 (Nature Climate Change)",
-  "content": "Recent studies show that <HL>global temperature anomalies have increased by 0.2°C per decade</HL> since 2000. The acceleration is particularly evident in Arctic regions where <HL>ice loss has tripled</HL> compared to the 1990s baseline.",
-  "evaluation": {
-    "score": 8.5,
-    "credibility": {
-      "source_reputation": "High - peer-reviewed journal",
-      "author_credentials": "Leading climate scientists",
-      "publication_date": "2024",
-      "methodology": "Robust data analysis"
-    },
-    "support": [
-      "Provides specific quantitative data (0.2°C per decade)",
-      "Compares to established baseline (1990s)",
-      "Published in reputable journal (Nature Climate Change)"
-    ],
-    "contradictions": []
+  "card": {
+    "tagline": "Card cutting preserves source wording",
+    "link": "",
+    "cite": "Synthetic demonstration, 2026",
+    "plainText": "Accurate card cutting preserves the original wording and highlights the selected passage.",
+    "markdownContent": "Accurate card cutting **preserves the original wording** and highlights the selected passage.",
+    "content": "Accurate card cutting <HL>preserves the original wording</HL> and highlights the selected passage.",
+    "highlights": [{"start": 22, "end": 52, "text": "preserves the original wording"}]
+  },
+  "meta": {
+    "mode": "normalized",
+    "model": null,
+    "source": "provided_text",
+    "sourceCharacters": 89,
+    "usage": null
   }
 }
 ```
 
-**Error Response:**
+Offsets are inclusive start/exclusive end UTF-16 positions in `plainText`. For generated cards, `mode` is `deepseek` and `usage` contains `promptTokens`, `completionTokens`, `totalTokens`, and optionally `cachedPromptTokens`. The API returns cards to the caller; import them into the webpage to save them in that browser.
+
+### Errors
 
 ```json
-{
-  "status": "fetch_error",
-  "cite": "",
-  "content": "",
-  "error": "Failed to fetch webpage: 404 Not Found"
-}
+{"error":{"code":"ungrounded_content","message":"The evidence excerpt is not an exact contiguous quote from the supplied source"}}
 ```
 
-**Response Fields:**
+| HTTP status | Meaning |
+| --- | --- |
+| 400 | Invalid input, blocked URL, excessive source size, invalid highlights, or ungrounded supplied excerpt. |
+| 401 | Invalid agent token. |
+| 405 | Wrong method; see `Allow`. |
+| 422 | Source fetch failed or content type is unsupported. Paste source text instead. |
+| 429 | Per-instance request limit; see `Retry-After`. |
+| 502 | Model request failed, returned malformed output, or changed source wording. |
+| 503 | Required backend credentials are not configured. |
+| 504 | Model request timed out. |
 
-| Field                       | Type   | Description                                                 |
-|-----------------------------|--------|-------------------------------------------------------------|
-| `status`                    | string | `"success"` or `"fetch_error"`                              |
-| `cite`                      | string | Formatted citation (author, date, publication)              |
-| `content`                   | string | Extracted evidence with `<HL>...</HL>` tags for highlights  |
-| `evaluation`                | object | Credibility analysis (only if `includeEvaluation: true`)    |
-| `evaluation.score`          | number | Overall quality score (0-10)                                |
-| `evaluation.credibility`    | object | Source credibility assessment                               |
-| `evaluation.support`        | array  | Reasons why the evidence supports the tagline               |
-| `evaluation.contradictions` | array  | Any contradictions or weaknesses found                      |
-| `error`                     | string | Error message (only present when status is `"fetch_error"`) |
+## Source fetching
 
-#### Highlight Tags
+The server fetches HTML/plain text, extracts the article with Mozilla Readability, and derives a short citation from available author/publisher/date metadata. JavaScript is not executed. Successful extraction is cached for ten minutes in a bounded 64-entry cache per instance. The cache is not shared across Vercel instances.
 
-Evidence text uses `<HL>` tags to mark important passages:
+Fetching has a total 12-second deadline, a 1.5 MB download limit, and up to four redirects. Every redirect and DNS result is checked against private/local addresses, and the selected public address is pinned for the connection. Only limited transient retries are attempted. A block or unsupported page produces an actionable failure, not a fabricated article.
 
-```
-This is normal text. <HL>This is highlighted text.</HL> More normal text.
-```
+For login-required, JavaScript-only, PDF, or bot-blocked sources, open the article normally and paste its text into the website's Source Panel or submit `sourceText`. An agent with browser access can do the same. A regular webpage cannot read arbitrary other sites through the user's browser because of cross-origin restrictions; an optional browser extension could provide one-click capture later.
 
-These tags are:
+## POST /api/cite
 
-- **Balanced:** All opening `<HL>` tags have matching closing `</HL>` tags
-- **Case-insensitive:** `<HL>`, `<hl>`, or `<Hl>` all work
-- **Preserved in exports:** Maintained when generating Word documents
+Browser-compatible route. Accepts the card fields above and optional `includeEvaluation`. Returns the existing top-level `status`, `cite`, and `content`, plus `plainText`, `markdownContent`, `highlights`, `meta`, and `evaluation`.
 
-#### Examples
+Generated cards are evaluated by default; use `includeEvaluation:false` for the fastest single-call workflow. Supplied finished cuts skip evaluation unless explicitly requested. Evaluation is supplementary and can be `null` if it fails. Token usage in `meta` is for the cutting call; an included evaluation has its own `evaluation.meta.usage`.
 
-**Example 1: Basic Evidence Extraction**
+For compatibility, card/source failures return HTTP 200 with `status:"fetch_error"`, empty `cite/content`, and `error`/`errorCode`. Check `status`, not only the HTTP status. Throttles still use 429. External agents should use `/api/cards` for consistent HTTP errors and authentication.
 
-```bash
-curl -X POST https://your-deployment.vercel.app/api/cite \
-  -H "Content-Type: application/json" \
-  -d '{
-    "tagline": "Renewable energy is cost-competitive",
-    "link": "https://example.com/renewable-energy-report"
-  }'
-```
+## Export routes
 
-**Example 2: Without Evaluation**
+- `POST /api/download-docx`: one card.
+- `POST /api/download-docx-bulk`: `{ "cards": [...] }`.
+- `POST /api/download-pdf-bulk`: `{ "cards": [...] }`.
 
-```bash
-curl -X POST https://your-deployment.vercel.app/api/cite \
-  -H "Content-Type: application/json" \
-  -d '{
-    "tagline": "AI improves medical diagnosis",
-    "link": "https://example.com/ai-medicine",
-    "includeEvaluation": false
-  }'
-```
-
----
-
-### 2. Generate Single Card Document
-
-Creates a formatted Word document (.docx) containing a single debate card with proper styling, highlighting, and
-citations.
-
-**Endpoint:** `POST /api/download-docx`
-
-#### Request
+Required card fields: `tagline`, `cite`, and either `content` or `markdownContent`. `link` is optional; if supplied it must be HTTP(S). Optional `highlightColor` is a six-digit color such as `#FFFF00`.
 
-**Headers:**
+Canonical `content` takes precedence when both representations are present, so edited content is preserved. To send Markdown in the `content` field, set `contentFormat:"markdown"`. Completely unhighlighted text is also exportable. Each card may contain at most 120,000 content characters; bulk requests accept 1–100 cards and at most 500,000 combined content characters, subject to the host's body limit (512 KB in Express).
 
-```http
-Content-Type: application/json
-```
+Responses are binary DOCX/PDF files with download headers. Invalid export data returns 400 with an `error` string; rendering failures return 500. Do not attempt to parse successful binary output as JSON. Exports do not call a model.
 
-**Body:**
+## Other routes
 
-```json
-{
-  "tagline": "Climate change impacts are accelerating",
-  "link": "https://example.com/article",
-  "cite": "Smith et al., 2024 (Nature Climate Change)",
-  "content": "Recent studies show that <HL>global temperature anomalies have increased by 0.2°C per decade</HL> since 2000.",
-  "highlightColor": "#FFFF00"
-}
-```
+- `POST /api/extract-evidence`: `{ "text": "research notes containing source URLs" }`. Returns `{success:true,items:[{tagline,link}],meta}`. URLs must occur in the input; the model cannot invent a link. Prefer finished card JSON imports to avoid this extra model call.
+- `POST /api/evaluate`: `{tagline,cite,content,link}`. Returns overall `score` on the website's 0–6 scale and `credibility`, `support`, and `contradictions` objects with `score` (0–10) and `reasoning`, plus usage metadata. A higher contradictions score means fewer contradictions. Evaluation is a model judgment, not independent fact-checking.
+- `GET /api/health`: service status and non-secret provider/model configuration status.
 
-**Parameters:**
+## Verification
 
-| Field            | Type   | Required | Description                                                |
-|------------------|--------|----------|------------------------------------------------------------|
-| `tagline`        | string | Yes      | The claim or thesis                                        |
-| `link`           | string | Yes      | Source URL                                                 |
-| `cite`           | string | Yes      | Formatted citation                                         |
-| `content`        | string | Yes      | Evidence text with `<HL>` tags                             |
-| `highlightColor` | string | No       | Hex color for highlights (default: `#00FF00` bright green) |
-
-#### Response
-
-**Success:** Binary `.docx` file download
-
-**Headers:**
-
-```http
-Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document
-Content-Disposition: attachment; filename="Smith_et_al_2024_1730000000000.docx"
-```
-
-**Error Response:**
-
-```json
-{
-  "error": "tagline, link, cite, and content are required"
-}
-```
-
-#### Document Format
-
-Generated Word documents include:
-
-- **Tagline:** 12pt bold (highlighted portions at 12pt)
-- **Link:** 6.5pt clickable hyperlink in dark blue
-- **Citation:** 10.5pt italic bold with highlight background
-- **Content:** 7.5pt body text (highlighted portions at 12pt bold)
-- **Font:** Times New Roman throughout
-- **Highlighting:** Custom color support with proper shading
-
-#### Examples
-
-**Example: Generate Document from API Response**
-
-```javascript
-// First, extract evidence
-const citeResponse = await fetch('https://your-deployment.vercel.app/api/cite', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    tagline: 'Climate change impacts are accelerating',
-    link: 'https://example.com/article'
-  })
-});
-
-const { cite, content } = await citeResponse.json();
-
-// Then, generate Word document
-const docResponse = await fetch('https://your-deployment.vercel.app/api/download-docx', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    tagline: 'Climate change impacts are accelerating',
-    link: 'https://example.com/article',
-    cite,
-    content,
-    highlightColor: '#FFFF00'
-  })
-});
-
-const blob = await docResponse.blob();
-// Save or download the .docx file
-```
-
----
-
-### 3. Generate Multi-Card Document
-
-Creates a Word document containing multiple debate cards in a single file. Useful for batch exports or creating evidence
-packets.
-
-**Endpoint:** `POST /api/download-docx-bulk`
-
-#### Request
-
-**Headers:**
-
-```http
-Content-Type: application/json
-```
-
-**Body:**
-
-```json
-{
-  "cards": [
-    {
-      "tagline": "First claim",
-      "link": "https://example.com/article1",
-      "cite": "Author1, 2024",
-      "content": "Evidence text with <HL>highlights</HL>.",
-      "highlightColor": "#FFFF00"
-    },
-    {
-      "tagline": "Second claim",
-      "link": "https://example.com/article2",
-      "cite": "Author2, 2024",
-      "content": "More evidence with <HL>different highlights</HL>.",
-      "highlightColor": "#00FFFF"
-    }
-  ]
-}
-```
-
-**Parameters:**
-
-| Field                    | Type   | Required | Description                       |
-|--------------------------|--------|----------|-----------------------------------|
-| `cards`                  | array  | Yes      | Array of card objects (minimum 1) |
-| `cards[].tagline`        | string | Yes      | The claim or thesis               |
-| `cards[].link`           | string | Yes      | Source URL                        |
-| `cards[].cite`           | string | Yes      | Formatted citation                |
-| `cards[].content`        | string | Yes      | Evidence text with `<HL>` tags    |
-| `cards[].highlightColor` | string | No       | Per-card highlight color (hex)    |
-
-#### Response
-
-**Success:** Binary `.docx` file download with all cards
-
-**Headers:**
-
-```http
-Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document
-Content-Disposition: attachment; filename="cards_1730000000000.docx"
-```
-
-**Error Response:**
-
-```json
-{
-  "error": "cards[] required"
-}
-```
-
-#### Document Structure
-
-- Each card is formatted identically to single-card documents
-- Cards are separated by 2 blank paragraphs
-- Each card can have its own highlight color
-- All cards use Times New Roman font
-
-#### Examples
-
-**Example: Batch Export**
-
-```bash
-curl -X POST https://your-deployment.vercel.app/api/download-docx-bulk \
-  -H "Content-Type: application/json" \
-  -d '{
-    "cards": [
-      {
-        "tagline": "AI improves productivity",
-        "link": "https://example.com/ai-study",
-        "cite": "Johnson, 2024",
-        "content": "Workers using AI completed tasks <HL>23% faster</HL>.",
-        "highlightColor": "#FFFF00"
-      },
-      {
-        "tagline": "Remote work increases satisfaction",
-        "link": "https://example.com/remote-work",
-        "cite": "Lee, 2024",
-        "content": "Survey shows <HL>87% of remote workers</HL> report higher job satisfaction.",
-        "highlightColor": "#00FFFF"
-      }
-    ]
-  }' \
-  --output cards.docx
-```
-
----
-
-### 4. Health Check
-
-Simple health check endpoint to verify the API is operational.
-
-**Endpoint:** `GET /api/health`
-
-#### Request
-
-No parameters required.
-
-```bash
-curl https://your-deployment.vercel.app/api/health
-```
-
-#### Response
-
-```json
-{
-  "status": "ok",
-  "timestamp": "2025-01-28T12:00:00.000Z"
-}
-```
-
----
-
-## Systematic Batch Processing
-
-Yes! Programs can systematically cite multiple sources and generate Word documents using only API calls. This enables
-automated research workflows.
-
-### Workflow Overview
-
-```
-1. Define sources → 2. Call /api/cite for each → 3. Collect results → 4. Call /api/download-docx-bulk → 5. Get .docx file
-```
-
-**See complete examples:**
-
-- JavaScript/Node.js: [`examples/batch-citation-example.js`](examples/batch-citation-example.js)
-- Python: [`examples/batch-citation-example.py`](examples/batch-citation-example.py)
-
-### Key Benefits
-
-- **Parallel Processing:** Cite multiple sources concurrently
-- **Quality Filtering:** Use evaluation scores to filter evidence
-- **Custom Organization:** Apply different highlight colors per card
-- **Single Document:** Export all cards to one .docx file
-- **Fully Automated:** No manual copying or formatting required
-
-### Quick Example
-
-```javascript
-// 1. Cite multiple sources in parallel
-const sources = [
-  { tagline: 'AI improves productivity', url: 'https://example.com/ai' },
-  { tagline: 'Remote work increases satisfaction', url: 'https://example.com/remote' }
-];
-
-const cards = await Promise.all(
-  sources.map(async ({ tagline, url }) => {
-    const res = await fetch(`${API_BASE}/api/cite`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tagline, link: url })
-    });
-    const data = await res.json();
-    return { tagline, link: url, cite: data.cite, content: data.content };
-  })
-);
-
-// 2. Generate single document with all cards
-const docRes = await fetch(`${API_BASE}/api/download-docx-bulk`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ cards })
-});
-
-const blob = await docRes.blob();
-// Save the .docx file
-```
-
----
-
-## Complete Workflow Example
-
-Here's a complete example of extracting evidence and generating a Word document:
-
-```javascript
-const API_BASE = 'https://your-deployment.vercel.app';
-
-async function createDebateCard(tagline, sourceUrl) {
-  // Step 1: Extract evidence with evaluation
-  const extractResponse = await fetch(`${API_BASE}/api/cite`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      tagline,
-      link: sourceUrl,
-      includeEvaluation: true
-    })
-  });
-
-  const data = await extractResponse.json();
-
-  if (data.status !== 'success') {
-    throw new Error(`Failed to extract evidence: ${data.error}`);
-  }
-
-  console.log('Evidence extracted:', data.cite);
-  console.log('Quality score:', data.evaluation?.score);
-
-  // Step 2: Generate Word document
-  const docResponse = await fetch(`${API_BASE}/api/download-docx`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      tagline,
-      link: sourceUrl,
-      cite: data.cite,
-      content: data.content,
-      highlightColor: '#FFFF00'
-    })
-  });
-
-  // Step 3: Save the document
-  const blob = await docResponse.blob();
-  const url = window.URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${data.cite.replace(/[^a-z0-9]/gi, '_')}.docx`;
-  a.click();
-
-  return data;
-}
-
-// Usage
-createDebateCard(
-  'Climate change impacts are accelerating',
-  'https://example.com/climate-article'
-);
-```
-
----
-
-## Error Handling
-
-### Common Error Scenarios
-
-#### 1. Invalid URL
-
-```json
-{
-  "status": "fetch_error",
-  "cite": "",
-  "content": "",
-  "error": "Failed to fetch webpage: Invalid URL"
-}
-```
-
-#### 2. Missing API Key
-
-```json
-{
-  "status": "fetch_error",
-  "cite": "",
-  "content": "",
-  "error": "Server missing GEMINI_API_KEY"
-}
-```
-
-#### 3. Missing Required Fields
-
-```json
-{
-  "status": "fetch_error",
-  "cite": "",
-  "content": "",
-  "error": "tagline and link are required"
-}
-```
-
-#### 4. AI Model Error
-
-```json
-{
-  "status": "fetch_error",
-  "cite": "",
-  "content": "",
-  "error": "Model returned unexpected format"
-}
-```
-
-### Best Practices
-
-1. **Always check the `status` field** in responses from `/api/cite`
-2. **Validate URLs** before sending to the API
-3. **Handle timeout scenarios** - AI processing may take 10-30 seconds
-4. **Preserve `<HL>` tag structure** when manipulating content
-5. **Use evaluation scores** to filter low-quality evidence
-6. **Set appropriate highlight colors** for visual organization
-
----
-
-## Rate Limiting
-
-Currently, there are no explicit rate limits. However:
-
-- Vercel serverless functions have a **10-second timeout** by default
-- Gemini API has its own rate limits based on your API key tier
-- For high-volume usage, consider implementing client-side throttling
-
----
-
-## Self-Hosting
-
-To self-host the API:
-
-```bash
-# 1. Clone and install
-git clone https://github.com/yourusername/evidex.git
-cd evidex
-npm install
-
-# 2. Build TypeScript
+```sh
+npm run check
 npm run build
-
-# 3. Set environment variables
-export GEMINI_API_KEY=your_api_key_here
-
-# 4. Start server
-npm run start
+node --test dist/__tests__/backend.test.js
+node scripts/highlighting-regression.mjs
 ```
 
-The Express server will run on `http://localhost:3000` with the same endpoints.
+With a local server on port 3001 and the agent token configured:
 
-### Environment Variables
+```sh
+node tests/smoke-api.mjs
+node tests/smoke-api.mjs --live
+```
 
-| Variable         | Required | Description                             |
-|------------------|----------|-----------------------------------------|
-| `GEMINI_API_KEY` | Yes      | Google Gemini API key for AI processing |
-| `PORT`           | No       | Server port (default: 3000)             |
-
----
-
-## API Versioning
-
-Current version: **v1** (implicit - no version prefix in URLs)
-
-Future versions will use URL prefixes (e.g., `/api/v2/cite`) while maintaining backward compatibility.
-
----
-
-## Support
-
-For issues, questions, or feature requests:
-
-- **GitHub Issues:** [github.com/yourusername/evidex/issues](https://github.com/yourusername/evidex/issues)
-- **Documentation:** See [README.md](README.md) and [CLAUDE.md](CLAUDE.md)
-
----
-
-## Changelog
-
-### Current (2025-01-28)
-
-- Initial API documentation
-- Evidence extraction with credibility evaluation
-- Single and bulk Word document generation
-- Highlight tag validation and balancing
-- Health check endpoint
+The `--live` flag makes two billed model calls. `py tests/export_regression.py` checks multiline PDF highlights and long-card pagination using PyMuPDF. Browser regression scripts under `tests/browser` use Python Playwright and a running local server.

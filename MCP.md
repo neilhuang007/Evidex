@@ -19,7 +19,8 @@ evidex_export_evidence_document
 - Unlisted cards appended in their original order
 - Source hyperlinks, citations, multiline content, and unhighlighted content
 - Canonical `<HL>...</HL>` or Markdown `**...**` highlights
-- A separate six-digit `highlight_color` for each card
+- Neon green (`#00FF00`) highlights by default; omit `highlight_color` to keep the default
+- An optional six-digit `highlight_color` override for each card when the user requests one
 - A custom `file_name`
 
 The hosted server returns an unguessable download link that expires after 15 minutes. Local stdio clients receive the document as an embedded MCP resource.
@@ -68,8 +69,7 @@ Call `evidex_export_evidence_document` with `format: "docx"` and completed cards
     {
       "tagline": "Costs fell",
       "cite": "Agency Report, 2026",
-      "content": "Household costs <HL>fell during the first year</HL>.",
-      "highlight_color": "#FFFF00"
+      "content": "Household costs <HL>fell during the first year</HL>."
     }
   ]
 }

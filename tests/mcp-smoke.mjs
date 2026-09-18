@@ -3,6 +3,7 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {Client} from '@modelcontextprotocol/client';
 import {StdioClientTransport} from '@modelcontextprotocol/client/stdio';
+import JSZip from 'jszip';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const serverPath = path.join(repositoryRoot, 'dist', 'mcp', 'index.js');
@@ -51,8 +52,7 @@ try {
       tagline: 'First card',
       cite: 'First Citation, 2026',
       link: 'https://example.com/first',
-      markdown_content: 'Before **first highlighted evidence** after.',
-      highlight_color: '#FFFF00'
+      markdown_content: 'Before **first highlighted evidence** after.'
     },
     {
       tagline: 'Second card',
@@ -76,7 +76,17 @@ try {
   assert.deepEqual(docx.structuredContent?.document?.orderedTaglines, ['Second card', 'First card']);
   const docxResource = docx.content.find((item) => item.type === 'resource');
   assert.ok(docxResource?.resource?.blob);
-  assert.equal(Buffer.from(docxResource.resource.blob, 'base64').subarray(0, 2).toString(), 'PK');
+  const docxBytes = Buffer.from(docxResource.resource.blob, 'base64');
+  assert.equal(docxBytes.subarray(0, 2).toString(), 'PK');
+  const docxZip = await JSZip.loadAsync(docxBytes);
+  const documentXml = await docxZip.file('word/document.xml').async('string');
+  const fillColors = new Set(
+    [...documentXml.matchAll(/w:fill="([0-9A-F]{6})"/gi)]
+      .map((match) => match[1].toUpperCase())
+  );
+  assert.ok(fillColors.has('00FF00'), 'Default DOCX highlight was not neon green');
+  assert.ok(fillColors.has('00FFFF'), 'Custom DOCX highlight color was not preserved');
+  assert.ok(!fillColors.has('FFFF00'), 'Default DOCX highlight unexpectedly became yellow');
 
   const pdf = await client.callTool({
     name: 'evidex_export_evidence_document',

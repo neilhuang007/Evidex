@@ -39,6 +39,7 @@
     "@types/node": "^20.10.0",
     "@types/node-fetch": "^2.6.13",
     "@vercel/node": "^3.0.0",
+    "jszip": "^3.10.2",
     "typescript": "^5.5.3"
   },
   "private": true

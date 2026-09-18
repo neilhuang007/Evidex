@@ -24,7 +24,7 @@ const exportCardSchema = z.object({
   markdown_content: z.string().min(1).max(120_000).optional()
     .describe('Evidence text with balanced **bold markers**. Use this when canonical content is unavailable.'),
   highlight_color: z.string().regex(/^#[\da-f]{6}$/i).default('#00FF00')
-    .describe('Six-digit highlight color used for this card, such as #FFFF00.')
+    .describe('Optional six-digit custom highlight color. Omit this field to use the Evidex UI default neon green (#00FF00); only set it when the user requests another color.')
 }).strict().refine((card) => Boolean(card.content || card.markdown_content), {
   message: 'Each card needs content or markdown_content'
 });
@@ -120,7 +120,7 @@ export function registerExportTool(server: McpServer): void {
       title: 'Export Evidex cards as DOCX or PDF',
       description: `Render one or more completed evidence cards with the same formatting as the Evidex browser UI.
 
-Supports DOCX for direct Google Docs import, PDF for fixed-layout sharing, exact input order, the UI's optional custom tagline ordering, source hyperlinks, citations, multiline evidence, canonical <HL> or Markdown highlights, and a separate highlight color for every card.
+Supports DOCX for direct Google Docs import, PDF for fixed-layout sharing, exact input order, the UI's optional custom tagline ordering, source hyperlinks, citations, multiline evidence, canonical <HL> or Markdown highlights, and an optional custom highlight color for every card. Omit highlight_color for the UI default neon green (#00FF00); never choose a different color unless the user requests it.
 
 The remote server returns a private, unguessable download URL that expires after 15 minutes. A local stdio server returns the document as an attached MCP resource. The agent should upload the DOCX to Google Drive and open it with Google Docs instead of rebuilding the formatting.`,
       inputSchema: exportInputSchema,

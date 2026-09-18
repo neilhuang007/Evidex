@@ -65,4 +65,4 @@ npm run mcp:http
 
 The endpoint is `http://127.0.0.1:3002/mcp`. Override the bind with `--host`, `--port`, `MCP_HOST`, or `MCP_PORT`. When binding beyond localhost, set `MCP_ALLOWED_HOSTS` to a comma-separated hostname allowlist.
 
-The production process is described by `ecosystem.mcp.config.cjs` and runs behind nginx. The public `/evidex/mcp` route is rewritten to the server's internal `/mcp` route.
+The production process is described by `ecosystem.mcp.config.cjs` and runs behind nginx. The `deploy/nginx/evidex-mcp-location.conf` snippet rewrites the public `/evidex/mcp` route to the server's internal `/mcp` route.

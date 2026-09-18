@@ -7,6 +7,7 @@ import {
   highlightSchema,
   responseMetaSchema
 } from './evidex-client';
+import {registerExportTool} from './export-tool';
 
 const inputSchema = z.object({
   tagline: z.string()
@@ -60,7 +61,7 @@ const outputSchema = z.object({
 type ToolInput = z.infer<typeof inputSchema>;
 type ToolOutput = z.infer<typeof outputSchema>;
 
-const SERVER_INSTRUCTIONS = 'Use evidex_cut_evidence_card when the user needs a sourced evidence excerpt supporting a claim. Provide a precise tagline and either a public link or source_text. If browser tools already read the source, pass source_text. If choosing the excerpt, pass one exact contiguous markdown_content passage with **highlighted words** to avoid an Evidex model call. Never invent citation metadata or alter quoted wording. The public service is limited to 30 requests per minute per IP.';
+const SERVER_INSTRUCTIONS = 'Use evidex_cut_evidence_card when the user needs a sourced evidence excerpt supporting a claim. Provide a precise tagline and either a public link or source_text. If browser tools already read the source, pass source_text. If choosing the excerpt, pass one exact contiguous markdown_content passage with **highlighted words** to avoid an Evidex model call. Never invent citation metadata or alter quoted wording. Use evidex_export_evidence_document to render completed cards as DOCX or PDF, preserving card order, custom tagline order, citations, links, highlights, and per-card colors. Prefer DOCX when the result will be imported into Google Docs. The public service is limited to 30 card-cutting requests per minute per IP.';
 
 function formatSuccess(output: ToolOutput, responseFormat: ToolInput['response_format']): string {
   if (responseFormat === 'json') return JSON.stringify(output);
@@ -158,6 +159,8 @@ Returns an importable card containing tagline, link, citation, exact quoted text
       }
     }
   );
+
+  registerExportTool(server);
 
   return server;
 }

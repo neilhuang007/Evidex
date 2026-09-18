@@ -1,12 +1,28 @@
 # Evidex MCP server
 
-The Evidex MCP server exposes one focused tool:
+The Evidex MCP server exposes two focused tools:
 
 ```text
 evidex_cut_evidence_card
+evidex_export_evidence_document
 ```
 
-It accepts a tagline and a public source link or exact source text, then returns a validated, importable evidence card. The server calls the public `/api/cite` endpoint and does not require authentication.
+`evidex_cut_evidence_card` accepts a tagline and a public source link or exact source text, then returns a validated, importable evidence card. The server calls the public `/api/cite` endpoint and does not require authentication.
+
+`evidex_export_evidence_document` turns 1–100 completed cards into the same formatted DOCX or PDF available in the browser UI. It supports:
+
+- Direct Google Docs import through DOCX
+- Fixed-layout PDF export
+- Exact card-array order
+- Optional UI-style custom ordering with `tagline_order`
+- Multiple cards sharing one tagline
+- Unlisted cards appended in their original order
+- Source hyperlinks, citations, multiline content, and unhighlighted content
+- Canonical `<HL>...</HL>` or Markdown `**...**` highlights
+- A separate six-digit `highlight_color` for each card
+- A custom `file_name`
+
+The hosted server returns an unguessable download link that expires after 15 minutes. Local stdio clients receive the document as an embedded MCP resource.
 
 ## Hosted endpoint
 
@@ -30,7 +46,34 @@ npm run build
 npm run test:mcp
 ```
 
-The smoke test connects over MCP stdio, discovers the tool, and submits a deterministic card with `source_text` and `markdown_content`. That path validates and formats the card without making a DeepSeek call.
+The smoke test connects over MCP stdio, submits a deterministic card without making a DeepSeek call, verifies custom ordering, and validates generated DOCX and PDF signatures.
+
+## Export cards for Google Docs
+
+Call `evidex_export_evidence_document` with `format: "docx"` and completed cards. Cards are rendered in their array order unless `tagline_order` is supplied. Upload the returned `.docx` to Google Drive and open it with Google Docs; the agent does not need to recreate the formatting.
+
+```json
+{
+  "format": "docx",
+  "file_name": "energy-evidence-brief",
+  "tagline_order": ["Costs fell", "Reliability improved"],
+  "cards": [
+    {
+      "tagline": "Reliability improved",
+      "cite": "Independent Study, 2026",
+      "link": "https://example.com/study",
+      "markdown_content": "The study found **reliability improved by 18 percent**.",
+      "highlight_color": "#00FFFF"
+    },
+    {
+      "tagline": "Costs fell",
+      "cite": "Agency Report, 2026",
+      "content": "Household costs <HL>fell during the first year</HL>.",
+      "highlight_color": "#FFFF00"
+    }
+  ]
+}
+```
 
 ## Add to a local Codex client
 

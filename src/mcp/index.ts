@@ -12,6 +12,7 @@ import {
   toNodeHandler
 } from '@modelcontextprotocol/node';
 import {createEvidexMcpServer} from './server';
+import {getDocument} from './document-store';
 
 function argumentValue(name: string): string | undefined {
   const args = process.argv.slice(2);
@@ -63,6 +64,39 @@ function runHttp(): void {
 
   const httpServer = createServer((req, res) => {
     const pathname = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`).pathname;
+    const documentMatch = /^\/files\/([0-9a-f-]{36})\/([^/]+)$/i.exec(pathname);
+    if (documentMatch) {
+      if (!validateHost(req, res) || !validateOrigin(req, res)) return;
+      if (!['GET', 'HEAD'].includes(req.method || '')) {
+        res.writeHead(405, {'Content-Type': 'application/json', 'Allow': 'GET, HEAD'});
+        res.end(JSON.stringify({error: 'Method not allowed'}));
+        return;
+      }
+      let requestedName: string;
+      try {
+        requestedName = decodeURIComponent(documentMatch[2]);
+      } catch {
+        res.writeHead(404, {'Content-Type': 'application/json'});
+        res.end(JSON.stringify({error: 'Document not found'}));
+        return;
+      }
+      const document = getDocument(documentMatch[1]);
+      if (!document || requestedName !== document.fileName) {
+        res.writeHead(404, {'Content-Type': 'application/json'});
+        res.end(JSON.stringify({error: 'Document not found or expired'}));
+        return;
+      }
+      res.writeHead(200, {
+        'Cache-Control': 'private, no-store, max-age=0',
+        'Content-Disposition': `attachment; filename="${document.fileName}"`,
+        'Content-Length': String(document.buffer.length),
+        'Content-Type': document.mimeType,
+        'X-Content-Type-Options': 'nosniff'
+      });
+      if (req.method === 'HEAD') res.end();
+      else res.end(document.buffer);
+      return;
+    }
     if (pathname !== '/mcp') {
       res.writeHead(404, {'Content-Type': 'application/json'});
       res.end(JSON.stringify({error: 'Not found'}));
